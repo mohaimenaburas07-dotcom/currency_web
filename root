@@ -1,0 +1,6 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/purchase-requests/[uuid]/start-execution/route.js")
+R.c("server/chunks/[root-of-the-server]__0byy_8k._.js")
+R.c("server/chunks/[root-of-the-server]__0j8-xkl._.js")
+R.c("server/chunks/0zjb_server_app_api_purchase-requests_[uuid]_start-execution_route_actions_09h1tth.js")
+R.m(7134)
+module.exports=R.m(7134).exports

@@ -1,0 +1,708 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model audit_logs {
+  id             BigInt    @id @default(autoincrement())
+  amount         Float?
+  bank_code      String?   @db.VarChar(255)
+  cbs_reference  String?   @db.VarChar(255)
+  error_code     String?   @db.VarChar(255)
+  fcms_reference String?   @db.VarChar(255)
+  iban           String?   @db.VarChar(255)
+  logged_at      DateTime? @db.Timestamp(6)
+  status_code    String?   @db.VarChar(255)
+  status_name    String?   @db.VarChar(255)
+  transaction_id String?   @db.VarChar(255)
+  user_name      String?   @db.VarChar(255)
+  user_nid       String?   @db.VarChar(255)
+  details        String?
+  phone          String?   @db.VarChar(255)
+}
+
+model bank_account_rejection_logs {
+  id                BigInt    @id @default(autoincrement())
+  bank_account_uuid String    @db.VarChar(255)
+  note              String?   @db.VarChar(1000)
+  reason_code       String?   @db.VarChar(255)
+  reason_name       String?   @db.VarChar(255)
+  rejected_by       String?   @db.VarChar(255)
+  timestamp         DateTime? @db.Timestamp(6)
+  rejection_details String?   @db.VarChar(2000)
+}
+
+model branches {
+  id        BigInt  @id @default(autoincrement())
+  address   String? @db.VarChar(255)
+  city      String? @db.VarChar(255)
+  code      String  @unique(map: "uk_rt29b5cpquhexus5t5ywalg67") @db.VarChar(255)
+  is_active Boolean
+  name_ar   String  @db.VarChar(255)
+  name_en   String  @db.VarChar(255)
+  phone     String? @db.VarChar(255)
+}
+
+model card_charge_logs {
+  id                  BigInt   @id @default(autoincrement())
+  customer_id         String   @db.VarChar(100)
+  customer_name       String?  @db.VarChar(255)
+  card_id             BigInt
+  pan_alias           String?  @db.VarChar(100)
+  amount              Decimal  @db.Decimal(19, 4)
+  otp_verified        Boolean  @default(false)
+  status              String   @default("SUCCESS") @db.VarChar(20)
+  created_at          DateTime @default(now()) @db.Timestamp(6)
+  card_transaction_id BigInt?
+  fee                 Decimal? @db.Decimal(19, 4)
+  source              String   @default("BANK_DASHBOARD") @db.VarChar(50)
+
+  @@index([created_at(sort: Desc)], map: "idx_card_charge_logs_created_at")
+  @@index([customer_id, created_at], map: "idx_card_charge_logs_customer")
+  @@index([card_transaction_id], map: "idx_card_tx")
+}
+
+model card_operation_logs {
+  id            BigInt    @id @default(autoincrement())
+  card_id       BigInt
+  created_at    DateTime? @db.Timestamp(6)
+  operation     String    @db.VarChar(255)
+  request_id    String?   @db.VarChar(255)
+  response_code String?   @db.VarChar(255)
+  status        String?   @db.VarChar(255)
+}
+
+model card_transactions {
+  id              BigInt    @id @default(autoincrement())
+  account_number  String    @db.VarChar(255)
+  amount          String    @db.VarChar(255)
+  card_id         BigInt
+  created_at      DateTime? @db.Timestamp(6)
+  customer_id     String    @db.VarChar(255)
+  error_message   String?   @db.VarChar(255)
+  idempotency_key String?   @unique(map: "uk_q09l2sd2sekx129k1xgkv5t07") @db.VarChar(255)
+  status          String    @db.VarChar(255)
+  updated_at      DateTime? @db.Timestamp(6)
+}
+
+model cards {
+  id             BigInt    @id @default(autoincrement())
+  created_at     DateTime? @db.Timestamp(6)
+  customer_id    String    @db.VarChar(255)
+  pan_alias      String    @unique(map: "uk_hfclgmtb2tfwbsnbk96wyype1") @db.VarChar(255)
+  status         String    @db.VarChar(255)
+  account_number String?   @db.VarChar(255)
+  expiry_date    String?   @db.VarChar(255)
+  pan_display    String?   @db.VarChar(255)
+}
+
+model exchange_activity_log {
+  id               BigInt           @id @default(autoincrement())
+  action           String           @db.VarChar(255)
+  company_id       BigInt
+  entity           String?          @db.VarChar(255)
+  entity_id        String?          @db.VarChar(255)
+  timestamp        DateTime         @db.Timestamp(6)
+  user_id          BigInt
+  exchange_company exchange_company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkqoua9993wpufaygem56br70hu")
+}
+
+model exchange_company {
+  id                    BigInt                  @id @default(autoincrement())
+  created_at            DateTime                @db.Timestamp(6)
+  cbs_customer_id       String?                 @unique(map: "uk_fxxonalo989q3i6tfc3dchtbh") @db.VarChar(255)
+  name                  String                  @db.VarChar(255)
+  status                String                  @db.VarChar(255)
+  fx_house_uuid         String?                 @db.VarChar(255)
+  exchange_activity_log exchange_activity_log[]
+  exchange_company_user exchange_company_user[]
+  fx_purchase_request   fx_purchase_request[]
+}
+
+model exchange_company_user {
+  id               BigInt           @id @default(autoincrement())
+  company_id       BigInt
+  created_at       DateTime         @db.Timestamp(6)
+  password         String           @db.VarChar(255)
+  role             String           @db.VarChar(255)
+  status           String           @db.VarChar(255)
+  username         String           @unique(map: "uk_rrw17g90p96ecp3tnq8guayqs") @db.VarChar(255)
+  exchange_company exchange_company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkjvtf8pauf8mku75ivnwdlop9y")
+}
+
+model export_audit_events {
+  id            BigInt    @id @default(autoincrement())
+  action        String    @db.VarChar(255)
+  actor_user_id BigInt?
+  batch_id      String    @db.Uuid
+  created_at    DateTime? @db.Timestamp(6)
+  note          String?   @db.VarChar(255)
+  reason_code   String?   @db.VarChar(255)
+  version       Int?
+}
+
+model export_batch_items {
+  id                BigInt   @id @default(autoincrement())
+  amount            Decimal? @db.Decimal(38, 2)
+  batch_id          String   @db.Uuid
+  currency          String?  @db.VarChar(255)
+  customer_name     String?  @db.VarChar(255)
+  fcms_request_uuid String?  @db.VarChar(255)
+  item_status       String?  @db.VarChar(255)
+}
+
+model export_batches {
+  id         String    @id @db.Uuid
+  branch_id  BigInt?
+  created_at DateTime? @db.Timestamp(6)
+  created_by String?   @db.VarChar(255)
+  currency   String?   @db.VarChar(255)
+  date_from  DateTime? @db.Timestamp(6)
+  date_to    DateTime? @db.Timestamp(6)
+  locked_at  DateTime? @db.Timestamp(6)
+  source     String?   @db.VarChar(255)
+  status     String    @db.VarChar(255)
+  version    Int?
+}
+
+model export_delivery_log {
+  id               BigInt    @id @default(autoincrement())
+  ack_received     Boolean
+  ack_required     Boolean
+  batch_id         String    @db.Uuid
+  correlation_id   String?   @db.VarChar(255)
+  last_attempt_at  DateTime? @db.Timestamp(6)
+  response_message String?
+  status           String?   @db.VarChar(255)
+  target           String?   @db.VarChar(255)
+}
+
+model export_posting_lines {
+  id         BigInt   @id @default(autoincrement())
+  account    String?  @db.VarChar(255)
+  cr_amount  Decimal? @db.Decimal(38, 2)
+  currency   String?  @db.VarChar(255)
+  dr_amount  Decimal? @db.Decimal(38, 2)
+  memo       String?  @db.VarChar(255)
+  posting_id BigInt
+}
+
+model export_postings {
+  id          BigInt    @id @default(autoincrement())
+  batch_id    String    @db.Uuid
+  created_at  DateTime? @db.Timestamp(6)
+  created_by  String?   @db.VarChar(255)
+  currency    String?   @db.VarChar(255)
+  posting_ref String?   @db.VarChar(255)
+  totals_cr   Decimal?  @db.Decimal(38, 2)
+  totals_dr   Decimal?  @db.Decimal(38, 2)
+}
+
+model flyway_schema_history {
+  installed_rank Int      @id(map: "flyway_schema_history_pk")
+  version        String?  @db.VarChar(50)
+  description    String   @db.VarChar(200)
+  type           String   @db.VarChar(20)
+  script         String   @db.VarChar(1000)
+  checksum       Int?
+  installed_by   String   @db.VarChar(100)
+  installed_on   DateTime @default(now()) @db.Timestamp(6)
+  execution_time Int
+  success        Boolean
+
+  @@index([success], map: "flyway_schema_history_s_idx")
+}
+
+model fx_companies {
+  id                 String        @id @db.Uuid
+  created_at         DateTime?     @db.Timestamp(6)
+  is_active          Boolean
+  name               String        @db.VarChar(255)
+  reference_account  String        @db.VarChar(255)
+  customer_code      String?       @db.VarChar(50)
+  cbs_account_number String?       @db.VarChar(50)
+  iban               String?       @db.VarChar(50)
+  cbl_key            String?       @db.VarChar(50)
+  fx_requests        fx_requests[]
+  users              users[]
+}
+
+model fx_contracts {
+  id              BigInt    @id
+  contract_number String?   @db.VarChar(100)
+  currency        String?   @db.VarChar(10)
+  rate            Decimal?  @db.Decimal(19, 4)
+  amount_limit    Decimal?  @db.Decimal(19, 4)
+  used_amount     Decimal?  @db.Decimal(19, 4)
+  limit_remaining Decimal?  @db.Decimal(19, 4)
+  start_date      DateTime? @db.Timestamp(6)
+  end_date        DateTime? @db.Timestamp(6)
+  status          String?   @db.VarChar(50)
+  fx_house_uuid   String    @db.VarChar(100)
+  last_synced_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([fx_house_uuid], map: "idx_fx_contracts_uuid")
+}
+
+model fx_credit_records {
+  id               BigInt    @id @default(autoincrement())
+  reference        String    @unique(map: "unique_credit_reference") @db.VarChar(50)
+  customer_code    String?   @db.VarChar(50)
+  usd_account      String?   @db.VarChar(50)
+  usd_amount       Decimal?  @db.Decimal(38, 2)
+  treasury_account String?   @db.VarChar(50)
+  status           String?   @db.VarChar(20)
+  cbs_reference    String?   @db.VarChar(100)
+  cbs_response     String?
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  cbs_customer_no  String?   @db.VarChar(50)
+  error_message    String?
+  request_xml      String?
+  response_xml     String?
+  tran_ref         String?   @db.VarChar(50)
+  updated_at       DateTime? @db.Timestamp(6)
+  amount           Decimal   @db.Decimal(15, 2)
+}
+
+model fx_debit_records {
+  id            String    @id @db.Uuid
+  amount        Float?
+  cbs_account   String?   @db.VarChar(255)
+  created_at    DateTime? @db.Timestamp(6)
+  message       String?   @db.VarChar(255)
+  reference     String?   @db.VarChar(255)
+  status        String?   @db.VarChar(255)
+  customer_code String?   @db.VarChar(255)
+  usd_amount    Float?
+}
+
+model fx_purchase_request {
+  id                  BigInt           @id @default(autoincrement())
+  amount              Decimal          @db.Decimal(19, 2)
+  company_id          BigInt
+  created_at          DateTime         @db.Timestamp(6)
+  currency            String           @db.VarChar(255)
+  external_request_id String           @unique(map: "uk_odu5xehow0b34ixviutn9b4sv") @db.VarChar(255)
+  rate                Decimal          @db.Decimal(15, 6)
+  request_reference   String?          @db.VarChar(255)
+  status              String           @db.VarChar(255)
+  updated_at          DateTime         @db.Timestamp(6)
+  exchange_company    exchange_company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk91v5p91mukedx4o95ov48jp1x")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model fx_requests {
+  id                    String       @id @db.Uuid
+  amount                Decimal      @db.Decimal(38, 2)
+  created_at            DateTime?    @db.Timestamp(6)
+  credit_ref            String?      @db.VarChar(255)
+  credit_status         String       @db.VarChar(255)
+  currency              String       @db.VarChar(255)
+  customer_id           String       @db.VarChar(255)
+  debit_ref             String?      @db.VarChar(255)
+  debit_status          String       @db.VarChar(255)
+  decline_reason        String?      @db.VarChar(255)
+  idempotency_key       String?      @db.VarChar(255)
+  processing_started_at DateTime?    @db.Timestamp(6)
+  reference             String?      @db.VarChar(255)
+  status                String       @db.VarChar(255)
+  updated_at            DateTime?    @db.Timestamp(6)
+  company_id            String       @db.Uuid
+  fx_companies          fx_companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fknsbo78t38b3k4oytnos15v2dg")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model otp_challenges {
+  id             BigInt    @id @default(autoincrement())
+  attempts       Int
+  created_at     DateTime? @db.Timestamp(6)
+  customer_id    String    @db.VarChar(255)
+  expires_at     DateTime  @db.Timestamp(6)
+  otp_hash       String    @db.VarChar(255)
+  status         String    @db.VarChar(255)
+  transaction_id String    @db.Uuid
+}
+
+model password_reset_requests {
+  id         String    @id @db.Uuid
+  attempts   Int
+  created_at DateTime? @db.Timestamp(6)
+  expires_at DateTime  @db.Timestamp(6)
+  identifier String    @db.VarChar(255)
+  otp_hash   String    @db.VarChar(255)
+  phone      String    @db.VarChar(255)
+  status     String    @db.VarChar(255)
+}
+
+model password_reset_tokens {
+  id         String    @id @db.Uuid
+  created_at DateTime? @db.Timestamp(6)
+  expires_at DateTime  @db.Timestamp(6)
+  identifier String    @db.VarChar(255)
+  token_hash String    @db.VarChar(255)
+  used       Boolean
+}
+
+model roles {
+  id         BigInt       @id @default(autoincrement())
+  name       String?      @db.VarChar(20)
+  user_roles user_roles[]
+}
+
+model salary_rejection_logs {
+  id               BigInt    @id @default(autoincrement())
+  note             String?   @db.VarChar(1000)
+  reason_code      String?   @db.VarChar(255)
+  reason_name      String?   @db.VarChar(255)
+  rejected_by      String?   @db.VarChar(255)
+  timestamp        DateTime? @db.Timestamp(6)
+  transaction_uuid String    @db.VarChar(255)
+}
+
+model system_logs {
+  id        BigInt   @id @default(autoincrement())
+  level     String   @db.VarChar(255)
+  message   String
+  source    String?  @db.VarChar(255)
+  timestamp DateTime @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model topup_transactions {
+  id                    String    @id @db.Uuid
+  amount                Decimal   @db.Decimal(38, 2)
+  card_id               BigInt
+  cms_ref               String?   @db.VarChar(255)
+  cms_status            String    @db.VarChar(255)
+  created_at            DateTime? @db.Timestamp(6)
+  currency              String    @db.VarChar(3)
+  customer_id           String    @db.VarChar(255)
+  debit_account         String    @db.VarChar(255)
+  debit_ref             String?   @db.VarChar(255)
+  debit_status          String    @db.VarChar(255)
+  failure_reason        String?   @db.VarChar(255)
+  idempotency_key       String?   @db.VarChar(255)
+  processing_started_at DateTime? @db.Timestamp(6)
+  refund_attempted      Boolean
+  refund_completed_at   DateTime? @db.Timestamp(6)
+  refund_error          String?   @db.VarChar(255)
+  refund_ref            String?   @db.VarChar(255)
+  refund_succeeded      Boolean
+  status                String    @db.VarChar(255)
+  updated_at            DateTime? @db.Timestamp(6)
+}
+
+model transfer_logs {
+  id               BigInt   @id @default(autoincrement())
+  amount           Decimal  @db.Decimal(19, 4)
+  created_at       DateTime @db.Timestamp(6)
+  fee              Decimal  @db.Decimal(19, 4)
+  reason           String?  @db.VarChar(255)
+  receiver_account String   @db.VarChar(255)
+  receiver_cust_id String?  @db.VarChar(255)
+  receiver_name    String?  @db.VarChar(255)
+  sender_account   String   @db.VarChar(255)
+  sender_cust_id   String?  @db.VarChar(255)
+  sender_name      String?  @db.VarChar(255)
+  status           String   @db.VarChar(255)
+  tran_ref         String   @db.VarChar(255)
+}
+
+model user_roles {
+  user_id BigInt
+  role_id BigInt
+  roles   roles  @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkh8ciramu9cc9q3qcqiv4ue8a6")
+  users   users  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkhfh9dx7w3ubf1co1vdev94g3f")
+
+  @@id([user_id, role_id])
+}
+
+model users {
+  id            BigInt        @id @default(autoincrement())
+  email         String        @unique(map: "uk6dotkott2kjsp8vw4d0m25fb7") @db.VarChar(255)
+  password      String        @db.VarChar(255)
+  username      String        @unique(map: "ukr43af9ap4edm43mmtq01oddj6") @db.VarChar(255)
+  branch_id     BigInt?
+  created_at    DateTime?     @db.Timestamp(6)
+  last_login_at DateTime?     @db.Timestamp(6)
+  is_active     Boolean       @default(true)
+  fx_company_id String?       @db.Uuid
+  name          String?       @db.VarChar(255)
+  phone         String?       @db.VarChar(50)
+  national_id   String?       @db.VarChar(50)
+  branch_code   String?       @db.VarChar(100)
+  role          String        @default("OPERATOR") @db.VarChar(20)
+  user_roles    user_roles[]
+  fx_companies  fx_companies? @relation(fields: [fx_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model ExecutionSession {
+  id                     String                  @id @default(cuid())
+  purchaseRequestUuid    String                  @unique @map("purchase_request_uuid")
+  customerCode           String?                 @map("customer_code")
+  startedByUserId        String                  @map("started_by_user_id")
+  branchId               String?                 @map("branch_id")
+  status                 ExecutionStatus         @default(DRAFT)
+  verificationStatus     StepStatus              @default(PENDING) @map("verification_status")
+  cameraStatus           StepStatus              @default(PENDING) @map("camera_status")
+  countingStatus         StepStatus              @default(PENDING) @map("counting_status")
+  receiptStatus          StepStatus              @default(PENDING) @map("receipt_status")
+  serialNumber           String?                 @map("serial_number")
+  notes                  String?
+  requestSnapshot        Json?                   @map("request_snapshot")
+  startedAt              DateTime                @default(now()) @map("started_at")
+  endedAt                DateTime?               @map("ended_at")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  usedDeviceIds          Json?                   @map("used_device_ids")
+  sourceMetadata         Json?                   @map("source_metadata")
+  cashCountResult        CashCountResult?
+  identityVerification   IdentityVerification?
+  mediaRecords           MediaRecord[]
+  receipt                Receipt?
+  receivedCustomerRecord ReceivedCustomerRecord?
+  transactionRecord      TransactionRecord?
+  auditLogs              WorkflowAuditLog[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("execution_sessions")
+}
+
+model IdentityVerification {
+  id                 String           @id @default(cuid())
+  sessionId          String           @unique @map("session_id")
+  verificationMethod String           @default("MANUAL") @map("verification_method")
+  documentType       String?          @map("document_type")
+  documentNumber     String?          @map("document_number")
+  documentImagePath  String?          @map("document_image_path")
+  matched            Boolean          @default(false)
+  mismatchReason     String?          @map("mismatch_reason")
+  verifiedByUserId   String           @map("verified_by_user_id")
+  verifiedAt         DateTime         @default(now()) @map("verified_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  session            ExecutionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("identity_verifications")
+}
+
+model MediaRecord {
+  id               String           @id @default(cuid())
+  sessionId        String           @map("session_id")
+  mediaType        MediaType        @map("media_type")
+  filePath         String           @map("file_path")
+  fileName         String           @map("file_name")
+  mimeType         String?          @map("mime_type")
+  fileSizeBytes    Int?             @map("file_size_bytes")
+  capturedByUserId String           @map("captured_by_user_id")
+  capturedAt       DateTime         @default(now()) @map("captured_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  session          ExecutionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([mediaType])
+  @@map("media_records")
+}
+
+model CashCountResult {
+  id                   String                  @id @default(cuid())
+  sessionId            String                  @unique @map("session_id")
+  currency             String                  @default("USD")
+  totalCountedAmount   Decimal                 @map("total_counted_amount") @db.Decimal(19, 2)
+  deviceReference      String?                 @map("device_reference")
+  excelFilePath        String?                 @map("excel_file_path")
+  isMatchedWithRequest Boolean                 @default(false) @map("is_matched_with_request")
+  countedAt            DateTime                @default(now()) @map("counted_at")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  usdSerialNumbers     String[]                @default([]) @map("usd_serial_numbers")
+  denominations        CashCountDenomination[]
+  session              ExecutionSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("cash_count_results")
+}
+
+model CashCountDenomination {
+  id                String          @id @default(cuid())
+  cashCountResultId String          @map("cash_count_result_id")
+  denomination      Decimal         @db.Decimal(10, 2)
+  notesCount        Int             @default(0) @map("notes_count")
+  subtotal          Decimal         @db.Decimal(19, 2)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  cashCountResult   CashCountResult @relation(fields: [cashCountResultId], references: [id], onDelete: Cascade)
+
+  @@map("cash_count_denominations")
+}
+
+model Receipt {
+  id                    String           @id @default(cuid())
+  sessionId             String           @unique @map("session_id")
+  receiptNumber         String           @unique @map("receipt_number")
+  customerCopyPath      String?          @map("customer_copy_path")
+  archiveCopyPath       String?          @map("archive_copy_path")
+  customerSignaturePath String?          @map("customer_signature_path")
+  fingerprintPath       String?          @map("fingerprint_path")
+  printedByUserId       String           @map("printed_by_user_id")
+  printedAt             DateTime         @default(now()) @map("printed_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  session               ExecutionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("receipts")
+}
+
+model TransactionRecord {
+  id                     String                  @id @default(cuid())
+  purchaseRequestUuid    String                  @unique @map("purchase_request_uuid")
+  sessionId              String                  @unique @map("session_id")
+  transactionNumber      String                  @unique @map("transaction_number")
+  currency               String
+  amountForeign          Decimal                 @map("amount_foreign") @db.Decimal(19, 2)
+  exchangeRate           Decimal                 @map("exchange_rate") @db.Decimal(15, 6)
+  amountLocal            Decimal                 @map("amount_local") @db.Decimal(19, 2)
+  serialNumber           String?                 @map("serial_number")
+  executedByUserId       String                  @map("executed_by_user_id")
+  branchId               String?                 @map("branch_id")
+  executedAt             DateTime                @default(now()) @map("executed_at")
+  status                 String                  @default("COMPLETED")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  receivedCustomerRecord ReceivedCustomerRecord?
+  session                ExecutionSession        @relation(fields: [sessionId], references: [id])
+
+  @@index([transactionNumber])
+  @@map("transaction_records")
+}
+
+model ReceivedCustomerRecord {
+  id                  String            @id @default(cuid())
+  purchaseRequestUuid String            @unique @map("purchase_request_uuid")
+  sessionId           String            @unique @map("session_id")
+  transactionRecordId String            @unique @map("transaction_record_id")
+  customerExternalId  String?           @map("customer_external_id")
+  customerName        String            @map("customer_name")
+  nationalId          String?           @map("national_id")
+  passportNumber      String?           @map("passport_number")
+  phone               String?
+  address             String?
+  requestType         String?           @map("request_type")
+  currency            String
+  amountForeign       Decimal           @map("amount_foreign") @db.Decimal(19, 2)
+  exchangeRate        Decimal           @map("exchange_rate") @db.Decimal(15, 6)
+  amountLocal         Decimal           @map("amount_local") @db.Decimal(19, 2)
+  receiptNumber       String?           @map("receipt_number")
+  receivedAt          DateTime          @default(now()) @map("received_at")
+  receivedByUserId    String            @map("received_by_user_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  session             ExecutionSession  @relation(fields: [sessionId], references: [id])
+  transactionRecord   TransactionRecord @relation(fields: [transactionRecordId], references: [id])
+
+  @@index([nationalId])
+  @@index([receivedAt(sort: Desc)])
+  @@map("received_customer_records")
+}
+
+model WorkflowAuditLog {
+  id                String            @id @default(cuid())
+  entityType        String            @map("entity_type")
+  entityId          String            @map("entity_id")
+  action            String
+  performedByUserId String?           @map("performed_by_user_id")
+  oldValuesJson     Json?             @map("old_values_json")
+  newValuesJson     Json?             @map("new_values_json")
+  ipAddress         String?           @map("ip_address")
+  userAgent         String?           @map("user_agent")
+  sessionId         String?           @map("session_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  session           ExecutionSession? @relation(fields: [sessionId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("workflow_audit_logs")
+}
+
+model BranchHardwareConfig {
+  id         String           @id @default(cuid())
+  branchCode String           @unique @map("branch_code")
+  branchName String?          @map("branch_name")
+  cameraIp   String?          @map("camera_ip")
+  counterIp  String?          @map("counter_ip")
+  printerIp  String?          @map("printer_ip")
+  gatewayUrl String?          @default("http://localhost:8080") @map("gateway_url")
+  
+  // Camera Configuration
+  cameraName         String?  @map("camera_name")
+  cameraUsername     String?  @map("camera_username")
+  cameraPassword     String?  @map("camera_password")
+  cameraHttpPort     Int      @default(80) @map("camera_http_port")
+  cameraRtspPort     Int      @default(554) @map("camera_rtsp_port")
+  cameraRtspMainPath String   @default("/unicast/c1/s0/live") @map("camera_rtsp_main_path")
+  cameraRtspSubPath  String   @default("/unicast/c1/s1/live") @map("camera_rtsp_sub_path")
+  cameraSnapshotPath String   @default("/snap.jpg") @map("camera_snapshot_path")
+  cameraEnabled      Boolean  @default(true) @map("camera_enabled")
+  cameraStreamType   String   @default("snapshot") @map("camera_stream_type")
+
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+  devices    HardwareDevice[]
+
+  @@map("branch_hardware_configs")
+}
+
+model HardwareDevice {
+  id             String               @id @default(cuid())
+  branchCode     String               @map("branch_code")
+  name           String
+  type           HardwareType
+  role           String?
+  connectionInfo Json                 @map("connection_info")
+  isDefault      Boolean              @default(false) @map("is_default")
+  status         DeviceStatus         @default(ONLINE)
+  metadata       Json?
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  branchConfig   BranchHardwareConfig @relation(fields: [branchCode], references: [branchCode], onDelete: Cascade)
+
+  @@index([branchCode])
+  @@index([type])
+  @@map("hardware_devices")
+}
+
+enum HardwareType {
+  CAMERA
+  SCANNER
+  PRINTER
+  COUNTER
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  MAINTENANCE
+}
+
+enum ExecutionStatus {
+  DRAFT
+  VERIFYING_IDENTITY
+  RECORDING
+  COUNTING_CASH
+  READY_FOR_CONFIRMATION
+  COMPLETED
+  CANCELLED
+}
+
+enum StepStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  FAILED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  DOCUMENT
+}
