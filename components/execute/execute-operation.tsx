@@ -21,6 +21,7 @@ import {
   Verified,
   Loader2,
   AlertCircle,
+  ChevronLeft,
   ChevronRight,
   Zap,
   Search,
