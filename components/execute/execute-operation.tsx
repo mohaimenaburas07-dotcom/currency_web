@@ -154,34 +154,45 @@ export function ExecuteOperation() {
         "Content-Type": "application/json"
       }
 
-      const sessionRes = await fetch(`/api/purchase-requests/${uuid}/start-execution`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ userId: "current-user" })
-      })
+      // 1. If the ID is a Purchase Request UUID (has dashes), start/get a session
+      // 2. If it's a Session ID (CUID, no dashes), just load it
+      const isSessionId = uuid.length > 20 && !uuid.includes("-")
 
-      if (!sessionRes.headers.get("content-type")?.includes("application/json")) {
-        const text = await sessionRes.text()
-        console.error(`[LoadData] Non-JSON response from start-execution: ${sessionRes.status}`, text.substring(0, 200))
-        throw new Error(`Server returned ${sessionRes.status}: ${text.substring(0, 50)}...`)
+      if (!isSessionId) {
+        console.log(`[LoadData] Starting/Getting session for purchase request: ${uuid}`);
+        const sessionRes = await fetch(`/api/purchase-requests/${uuid}/start-execution`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ userId: "current-user" })
+        })
+
+        const sessionData = await sessionRes.json()
+        if (!sessionRes.ok || !sessionData.sessionId) {
+          throw new Error(sessionData.error || sessionData.message || "فشل بدء العملية")
+        }
+
+        const sid = sessionData.sessionId
+        console.log(`[LoadData] Session created/found: ${sid}. Redirecting...`);
+        
+        // Use the existing execution route with the session ID
+        router.push(`/execute?id=${sid}`)
+        return
       }
 
-      const sessionData = await sessionRes.json()
-      if (!sessionRes.ok && sessionData.code !== "SESSION_ALREADY_EXISTS") {
-        throw new Error(sessionData.error || "Failed to initialize session")
-      }
-      const sessionId = sessionData.sessionId || sessionData.id
-
-      const fullSessionRes = await fetch(`/api/execution-sessions/${sessionId}?t=${Date.now()}`, { headers })
+      // Load session directly using Session ID
+      console.log(`[LoadData] Loading existing session: ${uuid}`);
+      const fullSessionRes = await fetch(`/api/execution-sessions/${uuid}?t=${Date.now()}`, { headers })
+      
       if (!fullSessionRes.ok) {
-        throw new Error(`Failed to fetch session details: ${fullSessionRes.status}`)
+        throw new Error(`تعذر تحميل بيانات الجلسة: ${fullSessionRes.status}`)
       }
+      
       const fullSession = await fullSessionRes.json()
       setSession(fullSession)
       setRequest(fullSession.requestSnapshot)
 
       if (fullSession.customerCode) {
-        const previewRes = await fetch(`/api/execution-sessions/${sessionId}/receipt-preview?t=${Date.now()}`, { headers })
+        const previewRes = await fetch(`/api/execution-sessions/${uuid}/receipt-preview?t=${Date.now()}`, { headers })
         if (previewRes.ok) {
           const preview = await previewRes.json()
           setCustomer(preview.customer)
