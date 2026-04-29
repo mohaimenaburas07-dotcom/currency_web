@@ -55,11 +55,20 @@ export async function fetchPurchaseRequestByUuid(
   userToken?: string
 ): Promise<FxPurchaseRequest> {
   const res = await fetch(
-    `${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}`,
+    `${FX_BASE}/api/v1/fx-houses/purchase-requests?page=1`,
     { headers: getHeaders(userToken) }
   )
+
   if (!res.ok) throw new Error(`FX API error ${res.status} for request ${uuid}`)
-  return res.json()
+  
+  const json = await res.json()
+  const found = json.data.find((r: any) => r.uuid === uuid)
+
+  if (!found) {
+    throw new Error(`Request ${uuid} not found in list`)
+  }
+
+  return found
 }
 
 export async function processPurchaseRequest(
