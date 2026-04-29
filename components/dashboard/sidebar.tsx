@@ -12,12 +12,16 @@ import {
   LogOut,
   Shield,
   Settings,
+  ClipboardList,
+  ListOrdered,
 } from "lucide-react"
 import { toast } from "sonner"
 
 const navItems = [
   { icon: Home, label: "الرئيسية", href: "/" },
   { icon: Calendar, label: "الحجوزات", href: "/reservations" },
+  { icon: ClipboardList, label: "طلبات معلقة", href: "/pending-requests" },
+  { icon: ListOrdered, label: "قائمة الانتظار", href: "/requests-queue" },
   { icon: PlayCircle, label: "تنفيذ العمليات", href: "/execute" },
   { icon: Users, label: "العملاء", href: "/customers" },
   { icon: FileText, label: "التقارير", href: "/reports" },

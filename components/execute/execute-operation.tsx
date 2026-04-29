@@ -52,11 +52,11 @@ import { toast } from "sonner"
 
 const STEPS = [
   { id: 1, label: "مراجعة الحجز", icon: FileText },
-  { id: 2, label: "التحقق من الهوية", icon: CreditCard },
-  { id: 3, label: "التسجيل والتوثيق", icon: Camera },
-  { id: 4, label: "عدّ الأموال", icon: Calculator },
-  { id: 5, label: "تأكيد التنفيذ", icon: Zap },
-  { id: 6, label: "الإيصال والطباعة", icon: Printer },
+  { id: 2, label: "الإيصال والطباعة", icon: Printer },
+  { id: 3, label: "عدّ الأموال", icon: Calculator },
+  { id: 4, label: "تأكيد المعالجة", icon: Zap },
+  { id: 5, label: "التسجيل والتوثيق", icon: Camera },
+  { id: 6, label: "التحقق وإنهاء الطلب", icon: CheckCircle },
 ]
 
 export function ExecuteOperation() {
@@ -124,11 +124,49 @@ export function ExecuteOperation() {
     return () => clearInterval(interval)
   }, [request?.branch_id])
   const [customer, setCustomer] = useState<any>(null)
-
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [serialNumber, setSerialNumber] = useState("")
   const [showReceipt, setShowReceipt] = useState(false)
-  const [isConfirming, setIsConfirming] = useState(false)
+
+  const handleProcessRequest = async () => {
+    if (!session?.id) return
+    
+    const serials = session.cashCountResult?.usdSerialNumbers || []
+    if (serials.length === 0) {
+      toast.error("يجب رفع ملف العد أو قراءة آلة العد قبل معالجة الطلب")
+      return
+    }
+
+    try {
+      setIsProcessing(true)
+      const token = localStorage.getItem("alwaha_auth_token")
+      const res = await fetch(`/api/fx/process/${request.uuid}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ts: Math.floor(Date.now() / 1000),
+          usd_serial_numbers: serials
+        })
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "فشلت عملية المعالجة في النظام المركزي")
+      }
+
+      toast.success("تمت معالجة الطلب بنجاح")
+      goToStep(4)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   const goToStep = (step: number) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -536,8 +574,8 @@ export function ExecuteOperation() {
   }
 
   const handleConfirmOperation = async () => {
-    if (!session?.id || !serialNumber) {
-      toast.error("يرجى إدخال الرقم التسلسلي")
+    if (!session?.id) {
+      toast.error("فشل تأكيد العملية: الجلسة غير موجودة")
       return
     }
     try {
@@ -595,7 +633,7 @@ export function ExecuteOperation() {
         method: "POST",
         headers,
         body: JSON.stringify({ 
-          serialNumber,
+          serialNumber: "SYSTEM_PROCESSED", // Manual input removed
           userId: "current-user",
           usedDeviceIds: selectedDevices,
           sourceMetadata
@@ -742,65 +780,8 @@ export function ExecuteOperation() {
           currentStep > 1 && currentStep < 6 ? "lg:col-span-8" : ""
         )}>
           {currentStep === 1 && <Step1Review customer={dispCustomer} operation={dispOperation} onNext={() => goToStep(2)} />}
+          
           {currentStep === 2 && (
-            <Step2Identity 
-              customer={dispCustomer} 
-              isVerified={isVerified} 
-              onVerify={handleVerifyIdentity} 
-              onNext={() => goToStep(3)} 
-              hardwareStatus={hardwareStatus} 
-              devicesCollection={hardwareConfigData?.devicesCollection}
-              selectedDeviceId={selectedDevices['SCANNER']}
-              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, SCANNER: id }))}
-              trackSource={trackSource}
-            />
-          )}
-          {currentStep === 3 && (
-            <Step3Documentation 
-              isRecording={isRecording} 
-              setIsRecording={setIsRecording} 
-              onCapturePhoto={handleUploadMockPhoto}
-              onCaptureVideo={handleUploadMockVideo}
-              onHardwareCapture={handleHardwareCapture}
-              hardwareStatus={hardwareStatus}
-              hardwareConfig={hardwareConfigData}
-              session={session}
-              onNext={() => goToStep(4)} 
-              onRefreshSession={loadData}
-              devicesCollection={hardwareConfigData?.devicesCollection}
-              selectedDeviceId={selectedDevices['CAMERA']}
-              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, CAMERA: id }))}
-              trackSource={trackSource}
-            />
-          )}
-          {currentStep === 4 && (
-            <Step4Cash 
-              session={session} 
-              operation={dispOperation} 
-              denominations={dispDenominations} 
-              onUpload={handleExcelUpload}
-              onHardwareRead={handleHardwareRead}
-              hardwareStatus={hardwareStatus}
-              onNext={() => goToStep(5)} 
-              devicesCollection={hardwareConfigData?.devicesCollection}
-              selectedDeviceId={selectedDevices['COUNTER']}
-              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, COUNTER: id }))}
-              trackSource={trackSource}
-              extractionMessage={extractionMessage}
-            />
-          )}
-          {currentStep === 5 && (
-            <Step5Confirm 
-              customer={dispCustomer} 
-              operation={dispOperation} 
-              serialNumber={serialNumber} 
-              setSerialNumber={setSerialNumber} 
-              onConfirm={handleConfirmOperation} 
-              isLoading={isConfirming} 
-              onBack={() => goToStep(4)}
-            />
-          )}
-          {currentStep === 6 && (
             <Step6Receipt 
               session={session}
               customer={dispCustomer} 
@@ -813,6 +794,63 @@ export function ExecuteOperation() {
               selectedDeviceId={selectedDevices['PRINTER']}
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, PRINTER: id }))}
               trackSource={trackSource}
+              onNext={() => goToStep(3)}
+            />
+          )}
+
+          {currentStep === 3 && (
+            <Step4Cash 
+              session={session} 
+              operation={dispOperation} 
+              denominations={dispDenominations} 
+              onUpload={handleExcelUpload}
+              onHardwareRead={handleHardwareRead}
+              hardwareStatus={hardwareStatus}
+              onNext={handleProcessRequest} 
+              devicesCollection={hardwareConfigData?.devicesCollection}
+              selectedDeviceId={selectedDevices['COUNTER']}
+              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, COUNTER: id }))}
+              trackSource={trackSource}
+              extractionMessage={extractionMessage}
+              isLoading={isProcessing}
+            />
+          )}
+
+          {currentStep === 4 && (
+            <StepProcessed onNext={() => goToStep(5)} />
+          )}
+
+          {currentStep === 5 && (
+            <Step3Documentation 
+              isRecording={isRecording} 
+              setIsRecording={setIsRecording} 
+              onCapturePhoto={handleUploadMockPhoto}
+              onCaptureVideo={handleUploadMockVideo}
+              onHardwareCapture={handleHardwareCapture}
+              hardwareStatus={hardwareStatus}
+              hardwareConfig={hardwareConfigData}
+              session={session}
+              onNext={() => goToStep(6)} 
+              onRefreshSession={loadData}
+              devicesCollection={hardwareConfigData?.devicesCollection}
+              selectedDeviceId={selectedDevices['CAMERA']}
+              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, CAMERA: id }))}
+              trackSource={trackSource}
+            />
+          )}
+
+          {currentStep === 6 && (
+            <Step2Identity 
+              customer={dispCustomer} 
+              isVerified={isVerified} 
+              onVerify={handleVerifyIdentity} 
+              onNext={handleConfirmOperation} 
+              hardwareStatus={hardwareStatus} 
+              devicesCollection={hardwareConfigData?.devicesCollection}
+              selectedDeviceId={selectedDevices['SCANNER']}
+              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, SCANNER: id }))}
+              trackSource={trackSource}
+              isConfirming={isConfirming}
             />
           )}
         </div>
@@ -866,6 +904,33 @@ export function ExecuteOperation() {
 }
 
 // --- Internal Step Components ---
+
+function StepProcessed({ onNext }: any) {
+  return (
+    <Card className="border-0 shadow-card bg-white rounded-[3rem] overflow-hidden">
+      <CardContent className="p-12">
+        <div className="flex flex-col items-center justify-center text-center space-y-6">
+          <div className="w-24 h-24 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/10">
+            <CheckCircle className="w-12 h-12" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-waha-gray-900">تمت معالجة الطلب بنجاح</h2>
+            <p className="text-waha-gray-500 font-bold max-w-sm">
+              تم تحديث حالة الطلب في النظام المركزي بنجاح. يمكنك الآن الانتقال لمرحلة التوثيق المرئي.
+            </p>
+          </div>
+          <Button 
+            onClick={onNext} 
+            className="h-14 px-12 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl shadow-waha-gray-900/10 gap-3 text-lg"
+          >
+            <span>المتابعة للمرحلة التالية</span>
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 function Step1Review({ customer, operation, onNext }: any) {
   return (
@@ -1400,27 +1465,23 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
 
           webrtcVideoRef.current.oncanplay = () => {
             console.log('[WebRTC] oncanplay fired.');
-            // Final success check
             if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
               markSuccess();
             }
           };
 
-          // Safe Play Attempt
           webrtcVideoRef.current.play().then(() => {
             console.log('[WebRTC] play() resolved successfully.');
           }).catch(err => {
             console.warn('[WebRTC] play() failed (likely autoplay policy):', err.message);
           });
 
-          // Immediate success if ICE is already up
           if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
             markSuccess();
           }
         }
       };
 
-      // ── Step 4: Signaling ────────────────────────────────────────────────
       pc.addTransceiver('video', { direction: 'recvonly' });
       pc.addTransceiver('audio', { direction: 'recvonly' });
 
@@ -1461,7 +1522,6 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
      }
   }, [initWebRTC, isHardwareEnabled, isCameraConnected]);
 
-  // Snapshot Polling Fallback Logic
   const startPolling = useCallback(() => {
        if (isHardwareEnabled && isCameraConnected && isWebRTCAvailable === false && !document.hidden) {
            frameStatsRef.current.lastLoadStart = Date.now();
@@ -1482,7 +1542,6 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
 
     document.addEventListener("visibilitychange", handleVisibility);
     
-    // Auto-trigger if WebRTC falls back
     if (isWebRTCAvailable === false) {
        startPolling();
     }
@@ -1497,7 +1556,6 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   const HARDWARE_POLL_DELAY_MS = 200;
 
   const triggerNextFrame = useCallback(() => {
-     // ONLY trigger polling if WebRTC explicitly failed
      if (!isHardwareEnabled || !isCameraConnected || document.hidden || isWebRTCAvailable !== false) return;
      if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
      
@@ -1620,14 +1678,12 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
       if (isHardwareEnabled && isCameraConnected) {
         
         if (isWebRTCAvailable && webrtcVideoRef.current) {
-            // WebRTC Primary Recording Path
             activeStream = (webrtcVideoRef.current as any).captureStream();
             if (!activeStream || activeStream.getVideoTracks().length === 0) {
                toast.error("فشل التقاط الفيديو من البث المباشر");
                return;
             }
         } else {
-            // Canvas Snapshot Polling Fallback Path
             isCanvasRecording = true;
             if (!canvasRef.current || !hwImgRef.current) {
               toast.error("حدث خطأ في تجهيز التسجيل من كاميرا الأجهزة");
@@ -1968,7 +2024,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   )
 }
 
-function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead, hardwareStatus, onNext, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, extractionMessage }: any) {
+function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead, hardwareStatus, onNext, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, extractionMessage, isLoading }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCounterConnected = hardwareStatus?.counter === 'CONNECTED'
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1996,13 +2052,13 @@ function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead
              {isHardwareEnabled && (
                <Button 
                  onClick={handleHardwareReadWrapper} 
-                 disabled={!isCounterConnected}
+                 disabled={!isCounterConnected || isLoading}
                  className={cn(
                    "h-10 px-6 rounded-xl font-bold text-xs gap-2 transition-all",
                    isCounterConnected ? "bg-waha-gray-900 text-white shadow-lg shadow-waha-gray-900/20" : "bg-waha-gray-100 text-waha-gray-400"
                  )}
                >
-                  <Cpu className="w-4 h-4" /> قراءة من الآلة
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />} {isLoading ? "جاري القراءة..." : "قراءة من الآلة"}
                </Button>
              )}
              <input 
@@ -2157,7 +2213,7 @@ function Step5Confirm({ customer, operation, serialNumber, setSerialNumber, onCo
   )
 }
 
-function Step6Receipt({ session, customer, operation, denominations, serialNumber, onPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource }: any) {
+function Step6Receipt({ session, customer, operation, denominations, serialNumber, onPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, onNext }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isPrinterConnected = hardwareStatus?.printer === 'CONNECTED'
   const [printLog, setPrintLog] = useState<string | null>(null)
@@ -2303,19 +2359,28 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
 
              <div className="bg-waha-gray-900 rounded-3xl p-6 shadow-xl space-y-4">
                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest text-center">الإنهاء والعودة</p>
-                <Button 
-                  className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/10" 
-                  onClick={() => window.location.href='/reservations'}
-                >
-                   العودة لجدول الحجوزات
-                </Button>
-                <Button 
-                  variant="ghost"
-                  className="w-full h-10 text-white/50 hover:text-white font-bold text-xs" 
-                  onClick={() => window.location.href='/'}
-                >
-                   الرئيسية
-                </Button>
+                 <Button 
+                   className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/10" 
+                   onClick={() => window.location.href='/reservations'}
+                 >
+                    العودة لجدول الحجوزات
+                 </Button>
+                 
+                 <Button 
+                   className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg mt-2" 
+                   onClick={onNext}
+                 >
+                    المتابعة لمرحلة العدّ
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                 </Button>
+
+                 <Button 
+                   variant="ghost"
+                   className="w-full h-10 text-white/50 hover:text-white font-bold text-xs" 
+                   onClick={() => window.location.href='/'}
+                 >
+                    الرئيسية
+                 </Button>
              </div>
           </div>
        </div>
