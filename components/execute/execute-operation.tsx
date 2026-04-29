@@ -47,7 +47,7 @@ import {
 } from "lucide-react"
 import { HARDWARE_CONFIG } from "@/lib/hardware/config"
 import { ReceiptPreview } from "./receipt-preview"
-import { cn } from "@/lib/utils"
+import { cn, getMediaUrl } from "@/lib/utils"
 import { toast } from "sonner"
 
 const STEPS = [
@@ -1909,12 +1909,12 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                     <div className="w-full h-full rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black/40 flex items-center justify-center">
                       {previewMedia.mediaType === 'VIDEO' ? (
                         <video 
-                          src={previewMedia.filePath ? `/uploads/${previewMedia.filePath.replace(/\\/g, "/")}` : previewMedia.url || ""} 
+                          src={getMediaUrl(previewMedia)} 
                           controls autoPlay className="max-w-full max-h-[80vh]" 
                         />
                       ) : (
                         <img 
-                          src={previewMedia.filePath ? `/uploads/${previewMedia.filePath.replace(/\\/g, "/")}` : previewMedia.url || ""} 
+                          src={getMediaUrl(previewMedia)} 
                           alt="preview" className="max-w-full max-h-[80vh] object-contain" 
                         />
                       )}
@@ -2401,7 +2401,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                     </div>
                   ) : (
                     <img 
-                      src={item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""} 
+                      src={getMediaUrl(item)} 
                       alt="Thumb" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                     />
                   )}
@@ -2436,7 +2436,7 @@ function MediaSlot({ label, icon, item, onPreview, onDelete }: any) {
           <>
             {item.mediaType === 'VIDEO' ? (
               <video 
-                src={`${item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""}?t=${timestamp}`} 
+                src={`${getMediaUrl(item)}?t=${timestamp}`} 
                 className="w-full h-full object-cover"
                 muted
                 onMouseOver={(e) => (e.target as HTMLVideoElement).play()}
@@ -2444,7 +2444,7 @@ function MediaSlot({ label, icon, item, onPreview, onDelete }: any) {
               />
             ) : (
               <img
-                src={`${item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""}?t=${timestamp}`}
+                src={`${getMediaUrl(item)}?t=${timestamp}`}
                 alt={label}
                 className="w-full h-full object-cover"
               />

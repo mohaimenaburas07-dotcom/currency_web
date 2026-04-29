@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, getMediaUrl } from "@/lib/utils"
 import Link from "next/link"
 
 interface CustomerDetailDialogProps {
@@ -229,10 +229,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                           
                           <div className="grid grid-cols-3 gap-3">
                             {res.media.map((m: any) => {
-                              const mediaSrc = m.filePath 
-                                ? `/uploads/${m.filePath.replace(/\\/g, "/")}` 
-                                : m.url || ""
-                              const mediaUrl = `${mediaSrc}?t=${Date.now()}`
+                              const mediaUrl = `${getMediaUrl(m)}?t=${Date.now()}`
                               return (
                                 <div key={m.id} className="group relative aspect-square rounded-xl overflow-hidden border border-waha-gray-100 bg-waha-gray-50 shadow-sm hover:shadow-md transition-all">
                                   {m.type === "PHOTO" || m.type === "DOCUMENT" ? (
