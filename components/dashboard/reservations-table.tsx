@@ -309,7 +309,7 @@ export function ReservationsTable() {
                           <div className="flex items-center justify-center gap-2">
                             {stateStr.toLowerCase() === 'approved' && (
                               <Button size="sm" className="h-7 px-3 rounded-lg bg-waha-gold hover:bg-waha-gold-dark text-waha-gray-900 font-bold text-[10px] shadow-sm transition-all hover:scale-105" asChild>
-                                <Link href={`/execute?id=${req.reference || req.uuid}&step=1`}>بدء التنفيذ</Link>
+                                <Link href={`/execute?id=${req.uuid}&step=1`}>بدء التنفيذ</Link>
                               </Button>
                             )}
                             {stateStr.toLowerCase() === 'pending' && (
@@ -323,7 +323,7 @@ export function ReservationsTable() {
                               </>
                             )}
                             <Button size="sm" variant="ghost" className="h-7 px-3 rounded-lg text-waha-gray-400 hover:text-waha-gray-900 font-bold text-[10px]" asChild>
-                              <Link href={`/execute?id=${req.reference || req.uuid}`}>تفاصيل</Link>
+                              <Link href={`/execute?id=${req.uuid}`}>تفاصيل</Link>
                             </Button>
                           </div>
                         </TableCell>

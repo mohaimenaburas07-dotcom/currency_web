@@ -170,7 +170,7 @@ export function RecentReservations() {
                       </TableCell>
                       <TableCell className="py-2 text-center">
                         <Button size="sm" className="h-6 px-3 rounded-md bg-waha-gray-900 hover:bg-black text-white font-bold text-[9px] shadow-sm transition-all group-hover:scale-105" asChild>
-                          <Link href={`/execute?id=${req.reference || req.uuid}`}>تنفيذ</Link>
+                          <Link href={`/execute?id=${req.uuid}`}>تنفيذ</Link>
                         </Button>
                       </TableCell>
                     </TableRow>

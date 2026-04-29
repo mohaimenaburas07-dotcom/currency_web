@@ -18,10 +18,11 @@ export async function GET(
     // 1. Try to resolve CUID to customerCode if applicable
     if (id.startsWith('c') && id.length > 10) {
       record = await prisma.receivedCustomerRecord.findUnique({
-        where: { id }
-      })
-      if (record) {
-        customerCode = record.customerCode
+        where: { id },
+        include: { session: true }
+      }) as any // Cast to avoid TS issues if types aren't fully generated
+      if (record?.session?.customerCode) {
+        customerCode = record.session.customerCode
         console.log(`[CUSTOMER_API] Resolved CUID ${id} to customerCode ${customerCode}`);
       }
     }
@@ -91,6 +92,7 @@ export async function GET(
         const rate = sSnap?.bank_transfer_price || 0
         return {
           id: s.id,
+          uuid: s.purchaseRequestUuid,
           reservationNumber: sSnap?.request_number || `RES-${s.id.split('-')[0].toUpperCase()}`,
           amountRequested: amount,
           currencyCode: sSnap?.currency?.name || sSnap?.bankAccount?.currency?.code || "USD",

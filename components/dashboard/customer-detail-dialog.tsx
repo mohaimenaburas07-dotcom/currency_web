@@ -199,7 +199,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                         <div className="flex items-center justify-between pt-4 border-t border-waha-gray-50">
                            <p className="text-[10px] font-bold text-waha-gray-400">{formatDate(res.createdAt)}</p>
                            <Button variant="ghost" className="h-8 text-[10px] font-black text-waha-gold gap-1.5 hover:bg-waha-gold/5" asChild>
-                              <Link href={`/execute?id=${res.id}&step=6`}>
+                              <Link href={`/execute?id=${res.uuid}&step=6`}>
                                  <DollarSign className="w-3 h-3" />
                                  عرض تفاصيل الإيصال
                               </Link>
