@@ -1,14 +1,17 @@
 // lib/fxApiClient.ts
 // Proxies requests to the Spring Boot FX API.
 
-const SPRING_BOOT = process.env.SPRING_BOOT_API || process.env.CBS_API || "http://localhost:8080"
+const FX_BASE =
+  process.env.FX_HOUSE_API ||
+  process.env.SPRING_BOOT_API ||
+  "http://localhost:8080"
 
 function getHeaders(userToken?: string) {
-  // Priority: 1. Passed token, 2. Env token
-  const token = userToken || process.env.CBS_AUTH_TOKEN;
+  const token = process.env.FX_HOUSE_TOKEN || userToken
+
   return {
     "Content-Type": "application/json",
-    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 }
 
@@ -40,7 +43,7 @@ export async function fetchPurchaseRequests(
 ): Promise<FxPaginatedResponse> {
   const qs = new URLSearchParams(params).toString()
   const res = await fetch(
-    `${SPRING_BOOT}/api/v1/fx-houses/purchase-requests?${qs}`,
+    `${FX_BASE}/api/v1/fx-houses/purchase-requests?${qs}`,
     { headers: getHeaders(userToken) }
   )
   if (!res.ok) throw new Error(`FX API error ${res.status}`)
@@ -52,7 +55,7 @@ export async function fetchPurchaseRequestByUuid(
   userToken?: string
 ): Promise<FxPurchaseRequest> {
   const res = await fetch(
-    `${SPRING_BOOT}/api/v1/fx-houses/purchase-requests/${uuid}`,
+    `${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}`,
     { headers: getHeaders(userToken) }
   )
   if (!res.ok) throw new Error(`FX API error ${res.status} for request ${uuid}`)
@@ -64,7 +67,9 @@ export async function processPurchaseRequest(
   payload: { ts: number; usd_serial_numbers: string[] },
   _userToken?: string
 ): Promise<any> {
-  const processUrl = process.env.FX_HOUSE_PROCESS_URL || `${SPRING_BOOT}/api/v1/fx-houses/purchase-requests`
+  const processUrl =
+    process.env.FX_HOUSE_PROCESS_URL ||
+    `${FX_BASE}/api/v1/fx-houses/purchase-requests`
   const serviceToken = process.env.FX_HOUSE_TOKEN
   
   console.log(`[FX_API] Processing request ${uuid} at ${processUrl}`);
