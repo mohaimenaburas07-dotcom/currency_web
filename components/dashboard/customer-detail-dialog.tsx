@@ -229,7 +229,10 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                           
                           <div className="grid grid-cols-3 gap-3">
                             {res.media.map((m: any) => {
-                              const mediaUrl = `${m.url}?t=${Date.now()}`
+                              const mediaSrc = m.filePath 
+                                ? `/uploads/${m.filePath.replace(/\\/g, "/")}` 
+                                : m.url || ""
+                              const mediaUrl = `${mediaSrc}?t=${Date.now()}`
                               return (
                                 <div key={m.id} className="group relative aspect-square rounded-xl overflow-hidden border border-waha-gray-100 bg-waha-gray-50 shadow-sm hover:shadow-md transition-all">
                                   {m.type === "PHOTO" || m.type === "DOCUMENT" ? (

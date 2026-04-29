@@ -1908,9 +1908,15 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
 
                     <div className="w-full h-full rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black/40 flex items-center justify-center">
                       {previewMedia.mediaType === 'VIDEO' ? (
-                        <video src={`/uploads/${previewMedia.filePath.replace(/\\/g, "/")}`} controls autoPlay className="max-w-full max-h-[80vh]" />
+                        <video 
+                          src={previewMedia.filePath ? `/uploads/${previewMedia.filePath.replace(/\\/g, "/")}` : previewMedia.url || ""} 
+                          controls autoPlay className="max-w-full max-h-[80vh]" 
+                        />
                       ) : (
-                        <img src={`/uploads/${previewMedia.filePath.replace(/\\/g, "/")}`} alt="preview" className="max-w-full max-h-[80vh] object-contain" />
+                        <img 
+                          src={previewMedia.filePath ? `/uploads/${previewMedia.filePath.replace(/\\/g, "/")}` : previewMedia.url || ""} 
+                          alt="preview" className="max-w-full max-h-[80vh] object-contain" 
+                        />
                       )}
                     </div>
                     
@@ -2385,7 +2391,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
 
        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
           {filtered.length > 0 ? filtered.map((item: any) => (
-            <div key={item.id} className="relative group flex-shrink-0 snap-start">
+             <div key={item.id} className="relative group flex-shrink-0 snap-start">
                <div className="w-32 h-24 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-waha-gray-100 cursor-pointer group-hover:shadow-xl group-hover:border-waha-gold/30 transition-all duration-300" onClick={() => onPreview(item)}>
                   {type === 'VIDEO' ? (
                     <div className="w-full h-full flex items-center justify-center relative">
@@ -2394,7 +2400,10 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                        <div className="absolute bottom-2 right-2 bg-black/60 text-[8px] font-black text-white px-1.5 py-0.5 rounded-md">MP4</div>
                     </div>
                   ) : (
-                    <img src={`/uploads/${item.filePath.replace(/\\/g, "/")}`} alt="Thumb" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <img 
+                      src={item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""} 
+                      alt="Thumb" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                    />
                   )}
                </div>
                <button 
@@ -2427,7 +2436,7 @@ function MediaSlot({ label, icon, item, onPreview, onDelete }: any) {
           <>
             {item.mediaType === 'VIDEO' ? (
               <video 
-                src={`/uploads/${item.filePath.replace(/\\/g, "/")}?t=${timestamp}`} 
+                src={`${item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""}?t=${timestamp}`} 
                 className="w-full h-full object-cover"
                 muted
                 onMouseOver={(e) => (e.target as HTMLVideoElement).play()}
@@ -2435,7 +2444,7 @@ function MediaSlot({ label, icon, item, onPreview, onDelete }: any) {
               />
             ) : (
               <img
-                src={`/uploads/${item.filePath.replace(/\\/g, "/")}?t=${timestamp}`}
+                src={`${item.filePath ? `/uploads/${item.filePath.replace(/\\/g, "/")}` : item.url || ""}?t=${timestamp}`}
                 alt={label}
                 className="w-full h-full object-cover"
               />

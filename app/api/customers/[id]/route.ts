@@ -102,6 +102,7 @@ export async function GET(
           media: s.mediaRecords.map(m => ({
             id: m.id,
             type: m.mediaType,
+            filePath: m.filePath,
             url: filePathToUrl(m.filePath)
           }))
         }
