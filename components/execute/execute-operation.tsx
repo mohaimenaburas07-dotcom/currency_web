@@ -211,7 +211,8 @@ export function ExecuteOperation() {
       setLoading(false)
       isInitializing.current = false
     }
-  }, [uuid, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uuid])
 
   useEffect(() => {
     loadData()
