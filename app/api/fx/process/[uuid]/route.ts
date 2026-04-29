@@ -6,32 +6,38 @@ export async function POST(
 ) {
   const { uuid } = await params
   const body = await req.json()
-  const { ts, usd_serial_numbers } = body
 
-  const FX_BASE = process.env.FX_HOUSE_API || "https://fcms-banks.cbl.gov.ly"
+  const baseUrl = process.env.FX_HOUSE_API || "https://fcms-banks.cbl.gov.ly"
   const token = process.env.FX_HOUSE_TOKEN
 
   try {
-    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}/process`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        ts: ts || Math.floor(Date.now() / 1000),
-        usd_serial_numbers: usd_serial_numbers || []
-      })
-    })
+    const res = await fetch(
+      `${baseUrl}/api/v1/fx-houses/purchase-requests/${uuid}/process`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          ts: body.ts || Math.floor(Date.now() / 1000),
+          usd_serial_numbers: body.usd_serial_numbers || [],
+        }),
+      }
+    )
+
+    const text = await res.text()
 
     if (!res.ok) {
-      const errorText = await res.text()
-      return NextResponse.json({ error: `CBS API error: ${res.status}`, details: errorText }, { status: res.status })
+      console.error("[Process Proxy Error]", res.status, text)
+      return new Response(text || `FX process failed ${res.status}`, { status: res.status })
     }
 
-    const data = await res.json()
-    return NextResponse.json(data)
+    return new Response(text, {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
   } catch (error: any) {
     console.error("[ProcessRequest Proxy Error]", error)
     return NextResponse.json({ error: "Failed to connect to CBS API" }, { status: 500 })
