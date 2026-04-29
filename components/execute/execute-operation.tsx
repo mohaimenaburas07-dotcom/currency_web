@@ -136,15 +136,20 @@ export function ExecuteOperation() {
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const lastLoadedUuid = useRef<string | null>(null)
+
   const loadData = useCallback(async () => {
     if (!uuid || isInitializing.current) return
     isInitializing.current = true
     
-    // Clear previous state to prevent data leakage between customers
-    setSession(null)
-    setCustomer(null)
-    setRequest(null)
-    setExtractionMessage(null)
+    // Only clear state if we are loading a different customer/session
+    if (lastLoadedUuid.current !== uuid) {
+      setSession(null)
+      setCustomer(null)
+      setRequest(null)
+      setExtractionMessage(null)
+      lastLoadedUuid.current = uuid
+    }
     
     try {
       setLoading(true)
@@ -199,15 +204,14 @@ export function ExecuteOperation() {
         }
       }
 
-      setLoading(false)
     } catch (err: any) {
       console.error("Execution error:", err)
       setError(err.message || "حدث خطأ أثناء تحميل بيانات العملية")
-      setLoading(false)
     } finally {
+      setLoading(false)
       isInitializing.current = false
     }
-  }, [uuid, searchParams, pathname, router])
+  }, [uuid, router])
 
   useEffect(() => {
     loadData()
