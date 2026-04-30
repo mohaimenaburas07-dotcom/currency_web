@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(
+export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ uuid: string }> }
 ) {
@@ -11,8 +11,11 @@ export async function POST(
   const token = process.env.FX_HOUSE_TOKEN
 
   try {
+    const targetUrl = `${baseUrl}/api/v1/fx-houses/purchase-requests/${uuid}/process`
+    console.log(`[Process] Proxying to: ${targetUrl}`)
+    
     const res = await fetch(
-      `${baseUrl}/api/v1/fx-houses/purchase-requests/${uuid}/process`,
+      targetUrl,
       {
         method: "PATCH",
         headers: {

@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
   query.set("page", page)
 
   try {
-    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/pending-purchase-requests?${query.toString()}`, {
+    const targetUrl = `${FX_BASE}/api/v1/fx-houses/pending-purchase-requests?${query.toString()}`
+    console.log(`[PendingRequests] Proxying to: ${targetUrl}`)
+    
+    const res = await fetch(targetUrl, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Accept": "application/json"

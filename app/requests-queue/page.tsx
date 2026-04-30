@@ -12,16 +12,19 @@ import {
   ListOrdered,
   Clock,
   User,
-  ArrowRight
+  ArrowRight,
+  CheckCircle
 } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 export default function RequestsQueuePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<any>(null)
   const [page, setPage] = useState(1)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
 
   const fetchQueue = async () => {
     try {
@@ -40,6 +43,23 @@ export default function RequestsQueuePage() {
   useEffect(() => {
     fetchQueue()
   }, [page])
+
+  const handleApprove = async (uuid: string) => {
+    try {
+      setApprovingId(uuid)
+      const res = await fetch(`/api/fx/approve/${uuid}`, { method: "PATCH" })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Approval failed")
+      }
+      toast.success("تمت الموافقة على الطلب بنجاح")
+      fetchQueue()
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setApprovingId(null)
+    }
+  }
 
   return (
     <DashboardLayout title="قائمة الانتظار" breadcrumb="العمليات">
@@ -96,8 +116,16 @@ export default function RequestsQueuePage() {
                                <User className="w-4 h-4" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-sm font-black text-waha-gray-900 leading-tight">{req.user_name || "بدون اسم"}</span>
-                              <span className="text-[10px] font-bold text-waha-gray-400">{new Date(req.created_at).toLocaleDateString("ar-LY")}</span>
+                              <span className="text-sm font-black text-waha-gray-900 leading-tight">
+                                {req.bankAccount?.user?.full_name_en || 
+                                 (req.bankAccount?.user?.first_name ? 
+                                   `${req.bankAccount.user.first_name} ${req.bankAccount.user.father_name || ""} ${req.bankAccount.user.last_name || ""}`.trim() : 
+                                   req.user_name || "بدون اسم")
+                                }
+                              </span>
+                              <span className="text-[10px] font-bold text-waha-gray-400">
+                                {req.bankAccount?.user?.nid || req.bankAccount?.user?.phone || req.nid || req.phone || "—"}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -107,18 +135,39 @@ export default function RequestsQueuePage() {
                           </span>
                         </td>
                         <td className="p-5 text-center">
-                          <Badge variant="outline" className="bg-waha-gray-50 text-waha-gray-600 border-waha-gray-100 text-[9px] font-bold px-3 py-1 rounded-full uppercase">
-                             {req.state || "قيد الانتظار"}
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] font-bold px-3 py-1 rounded-full uppercase",
+                            req.state?.code === 'approved' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                            req.state?.code === 'pending' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                            "bg-waha-gray-50 text-waha-gray-600 border-waha-gray-100"
+                          )}>
+                             {req.state?.name || "قيد الانتظار"}
                           </Badge>
                         </td>
                         <td className="p-5 text-center">
-                           <Button 
-                             onClick={() => router.push(`/execute?id=${req.uuid}`)}
-                             variant="ghost" 
-                             className="h-9 w-9 p-0 rounded-full hover:bg-waha-gold/10 hover:text-waha-gold transition-all"
-                           >
-                              <ArrowRight className="w-5 h-5" />
-                           </Button>
+                          <div className="flex items-center justify-center gap-2">
+                             {req.state?.code === 'pending' && (
+                               <Button 
+                                 size="sm"
+                                 disabled={approvingId === req.uuid}
+                                 onClick={() => handleApprove(req.uuid)}
+                                 className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold gap-1.5 px-3"
+                               >
+                                 {approvingId === req.uuid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                 اعتماد
+                               </Button>
+                             )}
+                             {req.state?.code === 'approved' && (
+                               <Button 
+                                 size="sm"
+                                 onClick={() => router.push(`/execute?id=${req.uuid}`)}
+                                 className="h-8 rounded-lg bg-waha-gray-900 hover:bg-black text-white text-[10px] font-bold gap-1.5 px-3"
+                               >
+                                 <ArrowRight className="w-3 h-3" />
+                                 تنفيذ
+                               </Button>
+                             )}
+                          </div>
                         </td>
                       </tr>
                     ))}

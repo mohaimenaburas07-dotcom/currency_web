@@ -66,7 +66,7 @@ export default function PendingRequestsPage() {
   const handleApprove = async (uuid: string) => {
     try {
       setApprovingId(uuid)
-      const res = await fetch(`/api/fx/approve/${uuid}`, { method: "POST" })
+      const res = await fetch(`/api/fx/approve/${uuid}`, { method: "PATCH" })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Approval failed")
@@ -176,8 +176,16 @@ export default function PendingRequestsPage() {
                         </td>
                         <td className="p-5 border-b border-waha-gray-50">
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-waha-gray-900">{req.user_name || "بدون اسم"}</span>
-                            <span className="text-[10px] font-bold text-waha-gray-400">{req.nid || req.phone || "—"}</span>
+                            <span className="text-sm font-black text-waha-gray-900">
+                              {req.bankAccount?.user?.full_name_en || 
+                               (req.bankAccount?.user?.first_name ? 
+                                 `${req.bankAccount.user.first_name} ${req.bankAccount.user.father_name || ""} ${req.bankAccount.user.last_name || ""}`.trim() : 
+                                 req.user_name || "بدون اسم")
+                              }
+                            </span>
+                            <span className="text-[10px] font-bold text-waha-gray-400">
+                              {req.bankAccount?.user?.nid || req.bankAccount?.user?.phone || req.nid || req.phone || "—"}
+                            </span>
                           </div>
                         </td>
                         <td className="p-5 border-b border-waha-gray-50">

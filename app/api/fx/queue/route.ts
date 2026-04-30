@@ -8,7 +8,10 @@ export async function GET(req: NextRequest) {
   const token = process.env.FX_HOUSE_TOKEN
 
   try {
-    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/purchase-requests-queue?page=${page}`, {
+    const targetUrl = `${FX_BASE}/api/v1/fx-houses/purchase-requests-queue?page=${page}`
+    console.log(`[Queue] Proxying to: ${targetUrl}`)
+    
+    const res = await fetch(targetUrl, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Accept": "application/json"

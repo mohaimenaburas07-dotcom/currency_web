@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(
+export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ uuid: string }> }
 ) {
@@ -9,8 +9,11 @@ export async function POST(
   const token = process.env.FX_HOUSE_TOKEN
 
   try {
-    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}/approve`, {
-      method: "POST",
+    const targetUrl = `${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}/approve`
+    console.log(`[Approve] Proxying to: ${targetUrl}`)
+    
+    const res = await fetch(targetUrl, {
+      method: "PATCH",
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
