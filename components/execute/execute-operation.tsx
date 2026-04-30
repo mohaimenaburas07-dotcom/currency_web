@@ -44,6 +44,7 @@ import {
   Monitor,
   CloudUpload,
   RefreshCcw,
+  ShieldCheck,
   Video as VideoIcon,
 } from "lucide-react"
 import { HARDWARE_CONFIG } from "@/lib/hardware/config"
@@ -2447,7 +2448,7 @@ function Step5Confirm({ customer, operation, serialNumber, setSerialNumber, onCo
   )
 }
 
-function Step6Receipt({ session, customer, operation, denominations, serialNumber, onPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, onNext }: any) {
+function Step6Receipt({ session, customer, operation, denominations, serialNumber, usdSerialNumbers, onPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, onNext }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isPrinterConnected = hardwareStatus?.printer === 'CONNECTED'
   const [printLog, setPrintLog] = useState<string | null>(null)
@@ -2515,6 +2516,7 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
                   operation={operation} 
                   denominations={denominations} 
                   serialNumber={serialNumber} 
+                  usdSerialNumbers={usdSerialNumbers}
                   isEmbed={true}
                 />
              </div>
