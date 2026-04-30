@@ -144,12 +144,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="flex-1 px-2 flex items-center font-bold tracking-widest border-r border-gray-400" dir="ltr">{phone}</div>
         </div>
 
-        {/* Row 5: Serial Number */}
-        <div className="flex border-b border-gray-400 items-stretch h-8">
-          <div className="w-48 px-2 flex items-center text-gray-600 border-r border-gray-400">Serial Number</div>
-          <div className="flex-1 px-2 flex items-center font-bold tracking-widest font-mono">{serialNumber}</div>
-          <div className="w-32 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">رقم التسلسل</div>
-        </div>
+        {/* Serial Number Row Removed */}
 
         {/* Row 6: Amount in Words */}
         <div className="flex border-b border-gray-400 items-stretch h-8">
