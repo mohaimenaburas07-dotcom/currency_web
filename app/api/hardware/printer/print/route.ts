@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { printerService } from '@/lib/hardware/services/printerService';
+import { resolveBranchId } from '@/lib/hardware/branchResolver';
 
 export async function POST(req: NextRequest) {
   try {
+    const branchId = await resolveBranchId(req);
     const body = await req.json();
-    const { branchId, transactionId, operatorId, job } = body;
+    const { transactionId, operatorId, job } = body;
 
     // Detailed Validation for Phase 1
     const missing = [];

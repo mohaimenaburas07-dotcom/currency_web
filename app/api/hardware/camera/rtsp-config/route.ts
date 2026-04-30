@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBranchHardwareConfig } from '@/lib/hardware/dbConfig';
 import { hardwareRegistry } from '@/lib/hardware/hardwareRegistry';
+import { resolveBranchId } from '@/lib/hardware/branchResolver';
 
 const MEDIAMTX_API_BASE = 'http://localhost:9997/v3/config/paths';
 const MEDIAMTX_WHEP_BASE = 'http://localhost:8889';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const branchId = searchParams.get('branchId') || 'DEFAULT_BRANCH';
+  const branchId = await resolveBranchId(req);
   // Default to stream 2 (Substream) for better WebRTC compatibility (usually H.264)
   const streamId = parseInt(searchParams.get('streamId') || '2', 10);
 

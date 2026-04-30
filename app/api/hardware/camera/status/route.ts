@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBranchHardwareConfig } from '@/lib/hardware/dbConfig';
 import { fetchWithDigest } from '@/lib/hardware/digestFetch';
+import { resolveBranchId } from '@/lib/hardware/branchResolver';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const branchId = searchParams.get('branchId');
+  const branchId = await resolveBranchId(req);
 
   if (!branchId) {
     return NextResponse.json({ 

@@ -66,7 +66,8 @@ export default function LoginPage() {
         id: result.id,
         username: result.username,
         email: result.email,
-        roles: result.roles
+        roles: result.roles,
+        branch_code: result.branchCode || result.branch_code || null
       }))
 
       toast.success("تم تسجيل الدخول بنجاح")

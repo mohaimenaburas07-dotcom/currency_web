@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hardwareRegistry } from '@/lib/hardware/hardwareRegistry';
 import { getBranchHardwareConfig } from '@/lib/hardware/dbConfig';
+import { resolveBranchId } from '@/lib/hardware/branchResolver';
 
 export async function POST(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const branchId = searchParams.get('branchId') || 'DEFAULT_BRANCH';
+  const branchId = await resolveBranchId(req);
 
   try {
     const options = await req.json().catch(() => ({}));

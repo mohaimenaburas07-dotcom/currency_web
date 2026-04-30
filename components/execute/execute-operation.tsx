@@ -94,7 +94,22 @@ export function ExecuteOperation() {
 
     const checkHardware = async () => {
       try {
-        const branchId = request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
+        // Resolve branchId: Current user's branch has highest priority for hardware context
+        let branchId = HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
+        
+        const userStr = localStorage.getItem("alwaha_user");
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            if (user.branch_code) branchId = user.branch_code;
+          } catch (e) {}
+        }
+        
+        // If user branch not found, fallback to request branch
+        if (branchId === HARDWARE_CONFIG.DEFAULT_BRANCH_ID && request?.branch_id) {
+          branchId = request.branch_id;
+        }
+
         const res = await fetch(`/api/hardware/status?branchId=${branchId}`)
         const data = await res.json()
         if (data.success) {
