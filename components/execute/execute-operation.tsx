@@ -283,6 +283,10 @@ export function ExecuteOperation() {
   }, [uuid])
 
   useEffect(() => {
+    console.log(`[ExecuteOperation] State Change: step=${currentStep}, session=${!!session}, request=${!!request}, customer=${!!customer}`);
+  }, [currentStep, session, request, customer]);
+
+  useEffect(() => {
     loadData()
   }, [loadData])
 
@@ -720,6 +724,9 @@ export function ExecuteOperation() {
     )
   }
 
+  // Diagnostics for render crashes
+  console.log(`[Render] Step=${currentStep} | hasRequest=${!!request} | hasSession=${!!session}`);
+  
   const fallbackUser = request?.bankAccount?.user || {}
   const fallbackName = `${fallbackUser.first_name || ""} ${fallbackUser.last_name || ""}`.trim() || request?.user_name || "بدون اسم"
 
@@ -731,7 +738,6 @@ export function ExecuteOperation() {
     address: customer?.address || fallbackUser.city || "طرابلس - ليبيا",
   }
 
-  // Resilient rate calculation: check contract first, then common rate fields
   const amountNum = parseFloat(request?.amount_requested || "0")
   const rateRaw = request?.contract?.bank_transfer_price || request?.rate || request?.exchange_rate || 0
   const rate = typeof rateRaw === 'string' ? parseFloat(rateRaw) : Number(rateRaw)
@@ -740,9 +746,9 @@ export function ExecuteOperation() {
   const dispOperation = {
     id: request?.reference || "—",
     currency: request?.contract?.currency_code || "USD",
-    amount: amountNum.toLocaleString(),
-    rate: rate > 0 ? rate.toFixed(4) : "—",
-    totalLYD: totalLYD > 0 ? totalLYD.toLocaleString() : "0.00",
+    amount: (typeof amountNum === 'number' && !isNaN(amountNum)) ? amountNum.toLocaleString() : "0",
+    rate: (typeof rate === 'number' && !isNaN(rate) && rate > 0) ? rate.toFixed(4) : "—",
+    totalLYD: (typeof totalLYD === 'number' && !isNaN(totalLYD) && totalLYD > 0) ? totalLYD.toLocaleString() : "0.00",
   }
 
   const dispDenominations = session?.cashCountResult?.denominations?.map((d: any) => ({
@@ -1285,7 +1291,8 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
         setScannedDoc(imageData);
         setFileMetadata({ name: "ScannedDocument.jpg", size: "Unknown", type: "image/jpeg", source: "scanner" });
         trackSource('SCANNER', 'hardware');
-        toast.success(`تم المسح بنجاح (${(imageData.length / 1024 / 1024).toFixed(2)} MB)`);
+        const sizeMB = (imageData.length / 1024 / 1024);
+        toast.success(`تم المسح بنجاح (${(typeof sizeMB === 'number' && !isNaN(sizeMB)) ? sizeMB.toFixed(2) : '0'} MB)`);
         processDocument(imageData, "ScannedDocument.jpg");
       } else {
         throw new Error(result.error?.message || result.message || "فشل المسح الضوئي");
@@ -1310,7 +1317,13 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
     setScannedDoc(null);
     setExtractionResult(null);
     setExtractionError(null);
-    setFileMetadata({ name: file.name, size: (file.size / 1024).toFixed(1) + " KB", type: file.type, source: "upload" });
+    const sizeKB = (file.size / 1024);
+    setFileMetadata({ 
+      name: file.name, 
+      size: (typeof sizeKB === 'number' && !isNaN(sizeKB) ? sizeKB.toFixed(1) : '0') + " KB", 
+      type: file.type, 
+      source: "upload" 
+    });
     trackSource('SCANNER', 'upload');
 
     const reader = new FileReader();
