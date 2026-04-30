@@ -110,7 +110,15 @@ export function ExecuteOperation() {
           branchId = request.branch_id;
         }
 
-        const res = await fetch(`/api/hardware/status?branchId=${branchId}`)
+        const token = localStorage.getItem("alwaha_auth_token");
+        console.log(`[HardwareStatus] Checking hardware for branch: ${branchId}`);
+        
+        const res = await fetch(`/api/hardware/status?branchId=${branchId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          },
+          cache: 'no-store'
+        })
         const data = await res.json()
         if (data.success) {
           setHardwareStatus(data.devices)

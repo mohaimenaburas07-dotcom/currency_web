@@ -31,13 +31,17 @@ export async function resolveBranchId(req: NextRequest): Promise<string> {
         const username = decoded?.sub;
         
         if (username) {
+          console.log(`[BranchResolver] Resolving branch for user: ${username}`);
           const user = await prisma.users.findUnique({
             where: { username },
             select: { branch_code: true }
           });
           
           if (user?.branch_code) {
+            console.log(`[BranchResolver] Resolved branch_code: ${user.branch_code}`);
             return user.branch_code;
+          } else {
+            console.warn(`[BranchResolver] User ${username} found but has no branch_code`);
           }
         }
       }
