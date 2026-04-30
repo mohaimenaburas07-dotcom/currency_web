@@ -6,16 +6,29 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Search, 
-  Filter, 
-  Loader2, 
-  CheckCircle, 
-  ChevronLeft, 
+import {
+  Search,
+  Filter,
+  Loader2,
+  CheckCircle,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Info,
+  Banknote,
+  CreditCard,
+  User as UserIcon,
+  Globe
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -26,12 +39,15 @@ export default function PendingRequestsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [data, setData] = useState<any>(null)
   const [page, setPage] = useState(1)
-  
+
   const [filters, setFilters] = useState({
     reference: "",
     phone: "",
     nid: ""
   })
+
+  const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const fetchRequests = async () => {
     try {
@@ -63,10 +79,14 @@ export default function PendingRequestsPage() {
     fetchRequests()
   }
 
-  const handleApprove = async (uuid: string) => {
+  const handleApprove = async (uuid: string, ts?: number) => {
     try {
       setApprovingId(uuid)
-      const res = await fetch(`/api/fx/approve/${uuid}`, { method: "PATCH" })
+      const res = await fetch(`/api/fx/approve/${uuid}`, { 
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ts: ts || Math.floor(Date.now() / 1000) })
+      })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Approval failed")
@@ -95,7 +115,7 @@ export default function PendingRequestsPage() {
             <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-waha-gray-500 mr-2 uppercase">رقم المرجع</label>
-                <Input 
+                <Input
                   placeholder="مثال: REF-123"
                   className="rounded-xl bg-waha-gray-50 border-waha-gray-100"
                   value={filters.reference}
@@ -104,7 +124,7 @@ export default function PendingRequestsPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-waha-gray-500 mr-2 uppercase">رقم الهاتف</label>
-                <Input 
+                <Input
                   placeholder="091XXXXXXX"
                   className="rounded-xl bg-waha-gray-50 border-waha-gray-100"
                   value={filters.phone}
@@ -113,7 +133,7 @@ export default function PendingRequestsPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-waha-gray-500 mr-2 uppercase">الرقم الوطني</label>
-                <Input 
+                <Input
                   placeholder="119XXXXXXXXX"
                   className="rounded-xl bg-waha-gray-50 border-waha-gray-100"
                   value={filters.nid}
@@ -159,22 +179,22 @@ export default function PendingRequestsPage() {
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-waha-gray-50/50">
-                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50">رقم المرجع</th>
-                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50">العميل</th>
-                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50">المبلغ</th>
-                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50">التاريخ</th>
+                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 text-right">رقم المرجع</th>
+                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 text-right">العميل</th>
+                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 text-center">المبلغ</th>
+                      <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 text-center">التاريخ</th>
                       <th className="p-5 text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 text-center">الإجراء</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.data.map((req: any) => (
-                      <tr key={req.uuid} className="group hover:bg-waha-gray-50/50 transition-colors">
-                        <td className="p-5 border-b border-waha-gray-50">
+                      <tr key={req.uuid} className="group hover:bg-waha-gray-50/50 transition-colors border-b border-waha-gray-50 last:border-0">
+                        <td className="p-5">
                           <span className="text-xs font-mono font-bold text-waha-gray-900 bg-waha-gray-100 px-2 py-1 rounded-lg border border-waha-gray-200">
                             {req.reference}
                           </span>
                         </td>
-                        <td className="p-5 border-b border-waha-gray-50">
+                        <td className="p-5">
                           <div className="flex flex-col">
                             <span className="text-sm font-black text-waha-gray-900">
                               {req.bankAccount?.user?.full_name_en || 
@@ -184,33 +204,44 @@ export default function PendingRequestsPage() {
                               }
                             </span>
                             <span className="text-[10px] font-bold text-waha-gray-400">
-                              {req.bankAccount?.user?.nid || req.bankAccount?.user?.phone || req.nid || req.phone || "—"}
+                               {req.bankAccount?.user?.nid || req.nid || "—"}
                             </span>
                           </div>
                         </td>
-                        <td className="p-5 border-b border-waha-gray-50">
+                        <td className="p-5 text-center">
                           <span className="text-sm font-black text-emerald-600" dir="ltr">
-                            {Number(req.amount_requested).toLocaleString()} {req.currency}
+                            {Number(req.amount_requested).toLocaleString()} {req.currency || "USD"}
                           </span>
                         </td>
-                        <td className="p-5 border-b border-waha-gray-50">
-                          <span className="text-[11px] font-bold text-waha-gray-500">
+                        <td className="p-5 text-center">
+                           <span className="text-[11px] font-bold text-waha-gray-500">
                             {req.created_at ? new Date(req.created_at).toLocaleDateString("ar-LY") : "—"}
                           </span>
                         </td>
-                        <td className="p-5 border-b border-waha-gray-50 text-center">
-                          <Button 
-                            disabled={approvingId === req.uuid}
-                            onClick={() => handleApprove(req.uuid)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 px-6 font-bold text-xs gap-2 shadow-lg shadow-emerald-600/10"
-                          >
-                            {approvingId === req.uuid ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            )}
-                            <span>اعتماد</span>
-                          </Button>
+                        <td className="p-5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              onClick={() => { setSelectedRequest(req); setIsDetailsOpen(true); }}
+                              className="h-9 px-4 rounded-xl border-waha-gray-200 font-bold text-xs gap-2 bg-white hover:bg-waha-gray-50"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>التفاصيل</span>
+                            </Button>
+                            <Button 
+                              disabled={approvingId === req.uuid}
+                              onClick={() => handleApprove(req.uuid, req.timestamp)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 px-6 font-bold text-xs gap-2 shadow-lg shadow-emerald-600/10"
+                            >
+                              {approvingId === req.uuid ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-3.5 h-3.5" />
+                              )}
+                              <span>اعتماد</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -226,18 +257,18 @@ export default function PendingRequestsPage() {
                   الصفحة {page} من {data.meta.last_page}
                 </span>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
+                  <Button
+                    variant="outline"
+                    size="icon"
                     className="rounded-xl border-waha-gray-100"
                     disabled={page === 1}
                     onClick={() => setPage(p => p - 1)}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
+                  <Button
+                    variant="outline"
+                    size="icon"
                     className="rounded-xl border-waha-gray-100"
                     disabled={page === data.meta.last_page}
                     onClick={() => setPage(p => p + 1)}
@@ -249,6 +280,131 @@ export default function PendingRequestsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Details Modal */}
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="max-w-2xl bg-white rounded-[2rem] border-0 p-0 overflow-hidden shadow-2xl">
+            {selectedRequest && (
+              <>
+                <DialogHeader className="p-8 bg-waha-gray-900 text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-waha-gold/20 flex items-center justify-center text-waha-gold">
+                        <Info className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <DialogTitle className="text-xl font-black">تفاصيل طلب الشراء</DialogTitle>
+                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-0.5">{selectedRequest.reference}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-waha-gold text-waha-gray-900 border-0 font-bold px-4 py-1.5 rounded-full text-[10px]">
+                      {selectedRequest.state?.name || "قيد الانتظار"}
+                    </Badge>
+                  </div>
+                </DialogHeader>
+                
+                <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+                  {/* Amount Section */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-waha-gray-50 p-6 rounded-3xl border border-waha-gray-100">
+                       <div className="flex items-center gap-2 text-waha-gray-400 mb-2">
+                          <Banknote className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase">المبلغ المطلوب</span>
+                       </div>
+                       <div className="text-2xl font-black text-waha-gray-900" dir="ltr">
+                          {Number(selectedRequest.amount_requested).toLocaleString()} {selectedRequest.currency || "USD"}
+                       </div>
+                    </div>
+                    <div className="bg-waha-gray-50 p-6 rounded-3xl border border-waha-gray-100">
+                       <div className="flex items-center gap-2 text-waha-gray-400 mb-2">
+                          <CreditCard className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase">وسيلة الدفع</span>
+                       </div>
+                       <div className="text-lg font-black text-waha-gray-900">
+                          {selectedRequest.deposit_type?.name || "—"}
+                       </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 pb-2 flex items-center gap-2">
+                       <UserIcon className="w-3.5 h-3.5" /> معلومات العميل
+                    </h4>
+                    <div className="grid grid-cols-2 gap-6">
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">الاسم الكامل (EN)</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.bankAccount?.user?.full_name_en || "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">الرقم الوطني</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.bankAccount?.user?.nid || selectedRequest.nid || "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">رقم الهاتف</span>
+                          <p className="text-sm font-bold text-waha-gray-900" dir="ltr">{selectedRequest.bankAccount?.user?.phone || selectedRequest.phone || "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">رقم جواز السفر</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.bankAccount?.user?.passport_number || "—"}</p>
+                       </div>
+                    </div>
+                  </div>
+
+                  {/* Bank & Company */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-50 pb-2 flex items-center gap-2">
+                       <Globe className="w-3.5 h-3.5" /> بيانات الحساب والجهة
+                    </h4>
+                    <div className="grid grid-cols-2 gap-6">
+                       <div className="space-y-1 col-span-2">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">IBAN</span>
+                          <p className="text-xs font-mono font-bold text-waha-gray-900 bg-waha-gray-50 p-3 rounded-xl border border-waha-gray-100" dir="ltr">
+                             {selectedRequest.bankAccount?.iban || "—"}
+                          </p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">اسم الشركة</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.company?.name || "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">رمز CBL</span>
+                          <p className="text-sm font-mono font-bold text-waha-gold">{selectedRequest.company?.cbl_key || "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">تاريخ الطلب</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleString("ar-LY") : "—"}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">CBS Timestamp</span>
+                          <p className="text-sm font-mono font-bold text-waha-gray-400">{selectedRequest.timestamp || "—"}</p>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 flex justify-end gap-3 border-t border-waha-gray-50">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setIsDetailsOpen(false)}
+                      className="rounded-xl font-bold text-xs h-11 px-8 text-waha-gray-400"
+                    >
+                      إغلاق
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setIsDetailsOpen(false);
+                        handleApprove(selectedRequest.uuid, selectedRequest.timestamp);
+                      }}
+                      className="bg-waha-gray-900 hover:bg-black text-white rounded-xl font-bold text-xs h-11 px-8 shadow-xl shadow-waha-gray-900/10"
+                    >
+                      اعتماد الطلب الآن
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )

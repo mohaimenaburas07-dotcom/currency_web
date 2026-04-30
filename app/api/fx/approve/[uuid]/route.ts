@@ -5,6 +5,8 @@ export async function PATCH(
   { params }: { params: Promise<{ uuid: string }> }
 ) {
   const { uuid } = await params
+  const body = await req.json().catch(() => ({}))
+  
   const FX_BASE = process.env.FX_HOUSE_API || "https://fcms-banks.cbl.gov.ly"
   const token = process.env.FX_HOUSE_TOKEN
 
@@ -20,7 +22,7 @@ export async function PATCH(
         "Accept": "application/json"
       },
       body: JSON.stringify({
-        ts: Math.floor(Date.now() / 1000)
+        ts: body.ts || Math.floor(Date.now() / 1000)
       })
     })
 

@@ -166,14 +166,19 @@ export function ExecuteOperation() {
     try {
       setIsProcessing(true)
       const token = localStorage.getItem("alwaha_auth_token")
+      const ts = request?.timestamp || Math.floor(Date.now() / 1000);
+      if (!request?.timestamp) {
+        console.warn("[ExecuteOperation] request.timestamp missing, falling back to current time");
+      }
+
       const res = await fetch(`/api/fx/process/${request.uuid}`, {
-        method: "POST",
+        method: "PATCH",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          ts: Math.floor(Date.now() / 1000),
+          ts: ts,
           usd_serial_numbers: serials
         })
       })
