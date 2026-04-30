@@ -14,8 +14,8 @@ const nextConfig = {
         destination: '/api/uploads/:path*',
       },
       {
-        source: '/api/:path((?!customers|upload|purchase-requests|execution-sessions|received-customers|v1/fx-houses/purchase-requests|media|uploads).*)',
-        destination: 'http://localhost:8080/api/:path', // Proxy everything ELSE to Backend
+        source: '/api/:path((?!fx|customers|upload|purchase-requests|execution-sessions|received-customers|v1/fx-houses|media|uploads).*)',
+        destination: 'http://127.0.0.1:8080/api/:path',
       },
     ]
   },
