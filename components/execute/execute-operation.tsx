@@ -892,7 +892,7 @@ export function ExecuteOperation() {
               customer={dispCustomer} 
               isVerified={isVerified} 
               onVerify={handleVerifyIdentity} 
-              onNext={() => goToStep(7)} 
+              onNext={() => goToStep(6)} 
               hardwareStatus={hardwareStatus} 
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['SCANNER']}
@@ -902,7 +902,7 @@ export function ExecuteOperation() {
             />
           )}
 
-          {currentStep === 7 && (
+          {currentStep === 6 && (
             <Step7Finish 
               customer={dispCustomer}
               operation={dispOperation}
