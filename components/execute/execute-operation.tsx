@@ -2619,7 +2619,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                   <Trash2 className="w-3.5 h-3.5" />
                </button>
             </div>
-          ) : null}
+          )) : null}
        </div>
     </div>
   );

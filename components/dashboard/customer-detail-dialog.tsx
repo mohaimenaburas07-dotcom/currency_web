@@ -314,6 +314,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                         </div>
                       ))
                     )}
+                    </div>
                   </div>
                 </TabsContent>
               </div>
