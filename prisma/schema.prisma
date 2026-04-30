@@ -485,6 +485,10 @@ model IdentityVerification {
   mismatchReason     String?          @map("mismatch_reason")
   verifiedByUserId   String           @map("verified_by_user_id")
   verifiedAt         DateTime         @default(now()) @map("verified_at")
+  customerName       String?          @map("customer_name")
+  nationalId         String?          @map("national_id")
+  passportNumber     String?          @map("passport_number")
+  birthDate          String?          @map("birth_date")
   createdAt          DateTime         @default(now()) @map("created_at")
   session            ExecutionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -585,6 +589,7 @@ model ReceivedCustomerRecord {
   customerName        String            @map("customer_name")
   nationalId          String?           @map("national_id")
   passportNumber      String?           @map("passport_number")
+  birthDate           String?           @map("birth_date")
   phone               String?
   address             String?
   requestType         String?           @map("request_type")

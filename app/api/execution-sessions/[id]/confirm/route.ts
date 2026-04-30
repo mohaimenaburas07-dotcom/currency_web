@@ -118,10 +118,11 @@ export async function POST(
           sessionId: session.id,
           transactionRecordId: txnRecord.id,
           customerExternalId: cbsData?.customerCode ?? session.customerCode ?? "UNKNOWN",
-          customerName: cbsData?.customerName ?? snapshot?.client_name ?? "عميل",
-          nationalId: cbsData?.nationalId ?? snapshot?.national_id ?? "N/A",
-          passportNumber: cbsData?.passportNo ?? snapshot?.passport_no ?? "N/A",
-          phone: cbsData?.phoneNumber ?? "N/A",
+          customerName: session.identityVerification?.customerName ?? cbsData?.customerName ?? snapshot?.bankAccount?.user?.first_name ?? snapshot?.client_name ?? "عميل",
+          nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
+          passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
+          birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
+          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone ?? "N/A",
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -135,10 +136,11 @@ export async function POST(
           sessionId: session.id,
           transactionRecordId: txnRecord.id,
           customerExternalId: cbsData?.customerCode ?? session.customerCode ?? "UNKNOWN",
-          customerName: cbsData?.customerName ?? snapshot?.client_name ?? "عميل",
-          nationalId: cbsData?.nationalId ?? snapshot?.national_id ?? "N/A",
-          passportNumber: cbsData?.passportNo ?? snapshot?.passport_no ?? "N/A",
-          phone: cbsData?.phoneNumber ?? "N/A",
+          customerName: session.identityVerification?.customerName ?? cbsData?.customerName ?? snapshot?.bankAccount?.user?.first_name ?? snapshot?.client_name ?? "عميل",
+          nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
+          passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
+          birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
+          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone ?? "N/A",
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -165,10 +167,8 @@ export async function POST(
 
       console.log(`[Confirm] Calling external process API for request ${result.session.purchaseRequestUuid}...`)
       
-      // --- DISABLED FOR TESTING PURPOSES ---
-      // await processPurchaseRequest(result.session.purchaseRequestUuid, payload, userToken)
-      console.log(`[Confirm] [BYPASSED FOR TESTING] External process API would have been called for ${result.session.purchaseRequestUuid}`)
-      // -------------------------------------
+      await processPurchaseRequest(result.session.purchaseRequestUuid, payload, userToken)
+      console.log(`[Confirm] External process API called successfully for ${result.session.purchaseRequestUuid}`)
       
     } catch (processErr: any) {
       console.error(`[Confirm] External process API failed:`, processErr)

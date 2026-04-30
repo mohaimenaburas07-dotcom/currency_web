@@ -22,11 +22,20 @@ export async function POST(
           upsert: {
             create: {
               documentType: "ID_CARD",
-              documentNumber: "AUTO-VERIFIED",
+              documentNumber: body.nationalId || body.passportNumber || "AUTO-VERIFIED",
+              customerName: body.customerName,
+              nationalId: body.nationalId,
+              passportNumber: body.passportNumber,
+              birthDate: body.birthDate,
               matched: true,
               verifiedByUserId: userId,
             },
             update: {
+              documentNumber: body.nationalId || body.passportNumber || "AUTO-VERIFIED",
+              customerName: body.customerName,
+              nationalId: body.nationalId,
+              passportNumber: body.passportNumber,
+              birthDate: body.birthDate,
               matched: true,
               verifiedByUserId: userId,
             }

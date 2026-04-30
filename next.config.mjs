@@ -10,7 +10,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path((?!customers|upload|purchase-requests|execution-sessions|received-customers|v1/fx-houses/purchase-requests|media).*)',
+        source: '/uploads/:path*',
+        destination: '/api/uploads/:path*',
+      },
+      {
+        source: '/api/:path((?!customers|upload|purchase-requests|execution-sessions|received-customers|v1/fx-houses/purchase-requests|media|uploads).*)',
         destination: 'http://localhost:8080/api/:path', // Proxy everything ELSE to Backend
       },
     ]

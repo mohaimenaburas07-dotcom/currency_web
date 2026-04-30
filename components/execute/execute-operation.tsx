@@ -303,6 +303,10 @@ export function ExecuteOperation() {
         formData.append("documentType", metadata?.docType || "");
         formData.append("documentNumber", metadata?.idNumber || "");
         formData.append("documentSource", source);
+        
+        // Pass the metadata fields explicitly so the backend can save them to the session
+        formData.append("customerName", metadata?.name || "");
+        formData.append("birthDate", metadata?.birthDate || "");
 
         const uploadRes = await fetch(`/api/execution-sessions/${session.id}/upload-document`, {
           method: "POST",
@@ -315,7 +319,14 @@ export function ExecuteOperation() {
         const res = await fetch(`/api/execution-sessions/${session.id}/verify`, {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: "current-user", source: sourceMetadata['SCANNER'] || 'manual' })
+          body: JSON.stringify({ 
+            userId: "current-user", 
+            source: sourceMetadata['SCANNER'] || 'manual',
+            // Pass metadata if available even in manual mode
+            customerName: metadata?.name || "",
+            nationalId: metadata?.idNumber || "",
+            passportNumber: metadata?.passport || "",
+          })
         });
         if (!res.ok) throw new Error("Failed to verify identity");
       }
@@ -713,18 +724,23 @@ export function ExecuteOperation() {
 
   const dispCustomer = {
     name: customer?.name || fallbackName,
-    nationalId: customer?.nationalId || fallbackUser.national_id || "—",
+    nationalId: customer?.nationalId || fallbackUser.nid || fallbackUser.national_id || "—",
     passport: customer?.passportNumber || fallbackUser.passport_number || "—",
     phone: customer?.phone || fallbackUser.phone || "—",
     address: customer?.address || fallbackUser.city || "طرابلس - ليبيا",
   }
 
+  // Resilient rate calculation: check contract first, then common rate fields
+  const amountNum = parseFloat(request?.amount_requested || "0")
+  const rate = request?.contract?.bank_transfer_price || request?.rate || request?.exchange_rate || 0
+  const totalLYD = amountNum * rate
+
   const dispOperation = {
     id: request?.reference || "—",
     currency: request?.contract?.currency_code || "USD",
-    amount: parseInt(request?.amount_requested || "0").toLocaleString(),
-    rate: request?.contract?.bank_transfer_price || "0.00",
-    totalLYD: (parseInt(request?.amount_requested || "0") * (request?.contract?.bank_transfer_price || 0)).toLocaleString(),
+    amount: amountNum.toLocaleString(),
+    rate: rate > 0 ? rate.toFixed(4) : "—",
+    totalLYD: totalLYD > 0 ? totalLYD.toLocaleString() : "0.00",
   }
 
   const dispDenominations = session?.cashCountResult?.denominations?.map((d: any) => ({
@@ -808,7 +824,7 @@ export function ExecuteOperation() {
           "lg:col-span-12",
           currentStep > 1 && currentStep < 6 ? "lg:col-span-8" : ""
         )}>
-          {currentStep === 1 && <Step1Review customer={dispCustomer} operation={dispOperation} onNext={() => goToStep(2)} />}
+          {currentStep === 1 && <Step1Review customer={dispCustomer} operation={dispOperation} onNext={() => goToStep(2)} setCustomer={setCustomer} />}
           
           {currentStep === 2 && (
             <Step6Receipt 
@@ -882,6 +898,23 @@ export function ExecuteOperation() {
               isConfirming={isConfirming}
             />
           )}
+        </div>
+
+        {/* Emergency Session Reset */}
+        <div className="lg:col-span-12 flex justify-end pb-8">
+           <Button 
+             variant="ghost" 
+             size="sm" 
+             onClick={async () => {
+               if (confirm("تحذير: سيتم إلغاء الجلسة الحالية والبدء من جديد. هل أنت متأكد؟")) {
+                 await fetch(`/api/execution-sessions/${session?.id}/cancel`, { method: "POST" });
+                 window.location.href = `/execute?id=${uuid}&step=1&t=${Date.now()}`;
+               }
+             }}
+             className="text-waha-gray-300 hover:text-red-400 text-[10px] font-bold gap-2"
+           >
+              <RotateCcw className="w-3 h-3" /> إعادة ضبط الجلسة في حالة التعليق
+           </Button>
         </div>
 
         {/* ── Side Summary Panel (Sticky Right, steps 2-5) ── */}
@@ -961,7 +994,7 @@ function StepProcessed({ onNext }: any) {
   )
 }
 
-function Step1Review({ customer, operation, onNext }: any) {
+function Step1Review({ customer, operation, onNext, setCustomer }: any) {
   return (
     <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
       <Card className="w-full max-w-2xl border-0 shadow-card bg-white rounded-[2.5rem] overflow-hidden">
@@ -973,14 +1006,53 @@ function Step1Review({ customer, operation, onNext }: any) {
            <p className="text-xs font-bold text-waha-gray-400 mt-2">يرجى التأكد من صحة البيانات قبل بدء إجراءات التحقق</p>
         </div>
         <CardContent className="p-10 space-y-6">
-           <div className="grid grid-cols-2 gap-8">
-              <InfoRow label="اسم العميل" value={customer.name} />
-              <InfoRow label="رقم الحجز" value={operation.id} highlight />
-              <InfoRow label="الرقم الوطني" value={customer.nationalId} />
-              <InfoRow label="رقم الجواز" value={customer.passport} />
-              <InfoRow label="رقم الهاتف" value={customer.phone} isLtr />
-              <InfoRow label="العنوان" value={customer.address} />
-           </div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">اسم العميل</label>
+                  <Input 
+                    value={customer.name} 
+                    onChange={(e) => setCustomer((prev: any) => ({ ...prev, name: e.target.value }))}
+                    className="h-12 rounded-xl bg-waha-gray-50 border-waha-gray-100 font-bold text-sm"
+                  />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">رقم الحجز</label>
+                  <Input value={operation.id} readOnly disabled className="h-12 rounded-xl bg-waha-gray-100 border-waha-gray-100 font-black text-sm text-waha-gold" />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">الرقم الوطني</label>
+                  <Input 
+                    value={customer.nationalId} 
+                    onChange={(e) => setCustomer((prev: any) => ({ ...prev, nationalId: e.target.value }))}
+                    className="h-12 rounded-xl bg-waha-gray-50 border-waha-gray-100 font-bold text-sm"
+                  />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">رقم الجواز</label>
+                  <Input 
+                    value={customer.passport} 
+                    onChange={(e) => setCustomer((prev: any) => ({ ...prev, passport: e.target.value }))}
+                    className="h-12 rounded-xl bg-waha-gray-50 border-waha-gray-100 font-bold text-sm"
+                  />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">رقم الهاتف</label>
+                  <Input 
+                    value={customer.phone} 
+                    onChange={(e) => setCustomer((prev: any) => ({ ...prev, phone: e.target.value }))}
+                    className="h-12 rounded-xl bg-waha-gray-50 border-waha-gray-100 font-bold text-sm"
+                    dir="ltr"
+                  />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-waha-gray-400">العنوان</label>
+                  <Input 
+                    value={customer.address} 
+                    onChange={(e) => setCustomer((prev: any) => ({ ...prev, address: e.target.value }))}
+                    className="h-12 rounded-xl bg-waha-gray-50 border-waha-gray-100 font-bold text-sm"
+                  />
+               </div>
+            </div>
 
            <div className="bg-waha-gray-900 rounded-3xl p-8 mt-6 flex justify-between items-center text-white relative overflow-hidden shadow-xl">
               <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
@@ -1151,10 +1223,10 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
 
       setExtractionResult({
         name: customer.name,
-        idNumber: customer.idNumber || "A" + Math.floor(Math.random() * 10000000),
-        birthDate: "1988-05-12",
+        idNumber: customer.nationalId !== "—" ? customer.nationalId : customer.passport !== "—" ? customer.passport : "AUTO-" + Math.floor(Math.random() * 1000000),
+        birthDate: customer.birthDate || "1990-01-01",
         docType: fileName.toLowerCase().includes('passport') ? "جواز سفر" : "بطاقة شخصية / هوية",
-        confidence: (90 + Math.random() * 9).toFixed(1) + "%",
+        confidence: "98.5%",
         status: "SUCCESS"
       });
     }, 2000);

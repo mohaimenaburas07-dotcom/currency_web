@@ -13,6 +13,7 @@ export function getMediaUrl(m: any) {
   // Clean backslashes for URL compatibility
   const cleanPath = path.replace(/\\/g, "/")
   
-  if (cleanPath.startsWith("/uploads/")) return cleanPath
-  return `/uploads/${cleanPath}`
+  if (cleanPath.startsWith("/api/uploads/")) return cleanPath
+  if (cleanPath.startsWith("/uploads/")) return `/api${cleanPath}`
+  return `/api/uploads/${cleanPath}`
 }

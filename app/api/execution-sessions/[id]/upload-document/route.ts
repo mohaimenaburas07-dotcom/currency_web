@@ -24,6 +24,8 @@ export async function POST(
     const userId = formData.get("userId") as string ?? "system"
     const documentType = formData.get("documentType") as string ?? (file.type.includes("pdf") ? "PDF" : "IMAGE")
     const documentNumber = formData.get("documentNumber") as string ?? "UNKNOWN"
+    const customerName = formData.get("customerName") as string ?? null
+    const birthDate = formData.get("birthDate") as string ?? null
  
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -86,6 +88,8 @@ export async function POST(
           matched: true,
           verifiedByUserId: userId,
           verifiedAt: new Date(),
+          customerName,
+          birthDate,
         },
         create: {
           sessionId: id,
@@ -94,6 +98,8 @@ export async function POST(
           documentImagePath: saved.filePath,
           matched: true,
           verifiedByUserId: userId,
+          customerName,
+          birthDate,
         }
       })
 
