@@ -117,7 +117,7 @@ export async function POST(
           nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
           passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
           birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
-          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A",
+          phone: cbsData?.phoneNumber ?? (snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A"),
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -135,7 +135,7 @@ export async function POST(
           nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
           passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
           birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
-          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A",
+          phone: cbsData?.phoneNumber ?? (snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A"),
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -144,6 +144,8 @@ export async function POST(
           receiptNumber: session.receipt.receiptNumber,
           receivedByUserId: userId ?? "system",
         }
+      })
+
       return { txnNumber, rcrId: rcr.id, session }
     })
 
