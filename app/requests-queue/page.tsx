@@ -63,6 +63,21 @@ export default function RequestsQueuePage() {
     try {
       setIsExecuting(req.uuid)
       const token = localStorage.getItem("alwaha_auth_token")
+
+      // 1. Check for existing session first
+      const checkRes = await fetch(`/api/execution-sessions/by-purchase-request/${req.uuid}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+      
+      if (checkRes.ok) {
+        const session = await checkRes.json()
+        if (session && session.id) {
+          router.push(`/execute?id=${session.id}`)
+          return
+        }
+      }
+
+      // 2. Start new if not found
       const res = await fetch(`/api/purchase-requests/${req.uuid}/start-execution`, {
         method: "POST",
         headers: {

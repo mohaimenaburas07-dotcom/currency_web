@@ -134,8 +134,9 @@ export async function POST(
       // Customer code extraction is best-effort
     }
 
-    // 4. Create the execution session
+    // 3. Create the execution session
     const userId = body.userId ?? "system"
+    const user = request.bankAccount?.user || {}
 
     const session = await prisma.executionSession.create({
       data: {
@@ -143,7 +144,40 @@ export async function POST(
         customerCode:        customerCode ?? undefined,
         startedByUserId:     userId,
         status:              "DRAFT",
-        requestSnapshot:     request, // Use the object directly as snapshot
+        requestSnapshot:     request,
+        fcmsRequestSnapshot: request,
+        
+        // Map FCMS Data
+        reference:           request.reference,
+        amountRequested:     request.amount_requested ? parseFloat(request.amount_requested) : null,
+        requestStateCode:    request.state?.code,
+        requestStateName:    request.state?.name,
+        requestTypeCode:     request.type?.code,
+        requestTypeName:     request.type?.name,
+
+        customerFullNameAr:  user.full_name || `${user.first_name || ""} ${user.father_name || ""} ${user.grandfather_name || ""} ${user.last_name || ""}`.trim(),
+        customerFullNameEn:  user.full_name_en,
+        customerNid:         user.nid,
+        customerPassportNo:  user.passport_number,
+        customerPhone:       user.phone,
+        customerBirthDate:   user.birth_date ? new Date(user.birth_date) : null,
+        passportExpiryDate:  user.passport_expiry_date ? new Date(user.passport_expiry_date) : null,
+
+        bankAccountUuid:     request.bankAccount?.uuid,
+        iban:                request.bankAccount?.iban,
+        bankAccountStateCode: request.bankAccount?.state?.code,
+        bankAccountStateName: request.bankAccount?.state?.name,
+
+        companyUuid:         request.company?.uuid,
+        companyName:         request.company?.name,
+        companyCblKey:       request.company?.cbl_key,
+        companyAccountNumber: request.company?.bank_account?.account_number,
+        companyIban:         request.company?.bank_account?.iban,
+
+        depositTypeCode:     request.deposit_type?.code,
+        depositTypeName:     request.deposit_type?.name,
+        passportAttached:    request.passport_attached,
+        fcmsTimestamp:       request.timestamp,
       },
     })
 

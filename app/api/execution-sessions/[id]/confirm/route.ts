@@ -40,34 +40,30 @@ export async function POST(
 
       // 1b. Checklist validation — log full state for debugging
       const docVerified = session.identityVerification?.matched === true
-      // Accept either a PHOTO or DOCUMENT as identity media (scanner saves as DOCUMENT)
       const hasIdentityMedia = session.mediaRecords.some(m => m.mediaType === 'PHOTO' || m.mediaType === 'DOCUMENT')
-      const hasPhoto = session.mediaRecords.some(m => m.mediaType === 'PHOTO')
-      const hasDocument = session.mediaRecords.some(m => m.mediaType === 'DOCUMENT')
       const hasVideo = session.mediaRecords.some(m => m.mediaType === 'VIDEO')
       const hasCash = !!session.cashCountResult
       const cashMatched = session.cashCountResult?.isMatchedWithRequest === true
       const hasReceipt = !!session.receipt
+      const hasProcessSnapshot = !!session.processSnapshot
 
       console.log(`[Confirm] Session ${id} checklist:
   identity_verified=${docVerified}
-  has_photo=${hasPhoto}
-  has_document=${hasDocument}
   has_identity_media=${hasIdentityMedia}
   has_video=${hasVideo}
   cash_done=${hasCash}
   cash_matched=${cashMatched}
   receipt=${hasReceipt}
+  fcms_processed=${hasProcessSnapshot}
   status=${session.status}`)
 
-      if (!docVerified) {
-        throw new ValidationError(`لم يتم التحقق من الهوية (matched=${session.identityVerification?.matched ?? 'MISSING'}) — يرجى إتمام خطوة التحقق`)
-      }
-      if (!hasIdentityMedia) throw new ValidationError("لم يتم رفع وثيقة أو صورة الهوية — يرجى إتمام خطوة التوثيق")
-      if (!hasVideo) throw new ValidationError("تسجيل الفيديو مطلوب — يرجى تسجيله في خطوة التوثيق")
-      if (!hasCash) throw new ValidationError("لم يتم إدخال بيانات العدّ النقدي بعد")
+      if (!docVerified) throw new ValidationError("لم يتم التحقق من الهوية — يرجى إتمام خطوة التحقق")
+      if (!hasIdentityMedia) throw new ValidationError("لم يتم رفع وثيقة أو صورة الهوية")
+      if (!hasVideo) throw new ValidationError("تسجيل الفيديو مطلوب")
+      if (!hasCash) throw new ValidationError("لم يتم إدخال بيانات العدّ النقدي")
       if (!cashMatched) throw new ValidationError("المبلغ المعدود لا يطابق المبلغ المطلوب")
-      if (!hasReceipt) throw new ValidationError("لم يتم إنشاء الإيصال — يرجى العودة وإنشائه أولاً")
+      if (!hasReceipt) throw new ValidationError("لم يتم إنشاء الإيصال")
+      if (!hasProcessSnapshot) throw new ValidationError("لم يتم معالجة الطلب في النظام المركزي (FCMS) — يرجى إتمام الخطوة 4")
 
       // 1c. Fetch CBS data (with fallback to snapshot if CBS unreachable)
       const snapshot = session.requestSnapshot as any
@@ -90,8 +86,8 @@ export async function POST(
           transactionNumber: txnNumber,
           currency: session.cashCountResult.currency,
           amountForeign: session.cashCountResult.totalCountedAmount,
-          exchangeRate: snapshot?.bank_transfer_price ?? 0,
-          amountLocal: Number(session.cashCountResult.totalCountedAmount) * (snapshot?.bank_transfer_price ?? 0),
+          exchangeRate: snapshot?.bank_transfer_price ?? snapshot?.rate ?? 0,
+          amountLocal: Number(session.cashCountResult.totalCountedAmount) * (snapshot?.bank_transfer_price ?? snapshot?.rate ?? 0),
           serialNumber,
           executedByUserId: userId ?? "system",
           status: "COMPLETED",
@@ -102,16 +98,15 @@ export async function POST(
           transactionNumber: txnNumber,
           currency: session.cashCountResult.currency,
           amountForeign: session.cashCountResult.totalCountedAmount,
-          exchangeRate: snapshot?.bank_transfer_price ?? 0,
-          amountLocal: Number(session.cashCountResult.totalCountedAmount) * (snapshot?.bank_transfer_price ?? 0),
+          exchangeRate: snapshot?.bank_transfer_price ?? snapshot?.rate ?? 0,
+          amountLocal: Number(session.cashCountResult.totalCountedAmount) * (snapshot?.bank_transfer_price ?? snapshot?.rate ?? 0),
           serialNumber,
           executedByUserId: userId ?? "system",
           status: "COMPLETED",
         }
       })
 
-      // 1e. Create or Update ReceivedCustomerRecord (THE CLIENTS PAGE ENTRY)
-      // Use CBS data when available, fall back to snapshot fields
+      // 1e. Create or Update ReceivedCustomerRecord
       const rcr = await tx.receivedCustomerRecord.upsert({
         where: { purchaseRequestUuid: session.purchaseRequestUuid },
         update: {
@@ -122,7 +117,7 @@ export async function POST(
           nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
           passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
           birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
-          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone ?? "N/A",
+          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A",
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -140,7 +135,7 @@ export async function POST(
           nationalId: session.identityVerification?.nationalId ?? cbsData?.nationalId ?? snapshot?.bankAccount?.user?.nid ?? snapshot?.national_id ?? "N/A",
           passportNumber: session.identityVerification?.passportNumber ?? cbsData?.passportNo ?? snapshot?.bankAccount?.user?.passport_number ?? snapshot?.passport_no ?? "N/A",
           birthDate: session.identityVerification?.birthDate ?? cbsData?.birthDate ?? snapshot?.bankAccount?.user?.birth_date ?? null,
-          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone ?? "N/A",
+          phone: cbsData?.phoneNumber ?? snapshot?.bankAccount?.user?.phone || snapshot?.phone || "N/A",
           requestType: snapshot?.type?.name ?? "CASH_PICKUP",
           currency: txnRecord.currency,
           amountForeign: txnRecord.amountForeign,
@@ -149,38 +144,15 @@ export async function POST(
           receiptNumber: session.receipt.receiptNumber,
           receivedByUserId: userId ?? "system",
         }
-      })
-
       return { txnNumber, rcrId: rcr.id, session }
     })
 
-    // 2. External Process API Call (Alwaha Requirement)
-    // Only proceed to complete the session if the external API succeeds
-    try {
-      const authHeader = req.headers.get("Authorization")
-      const userToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : undefined
-      
-      const payload = {
-        ts: Math.floor(Date.now() / 1000),
-        usd_serial_numbers: result.session.cashCountResult?.usdSerialNumbers ?? [],
-      };
-
-      console.log(`[Confirm] Calling external process API for request ${result.session.purchaseRequestUuid}...`)
-      
-      await processPurchaseRequest(result.session.purchaseRequestUuid, payload, userToken)
-      console.log(`[Confirm] External process API called successfully for ${result.session.purchaseRequestUuid}`)
-      
-    } catch (processErr: any) {
-      console.error(`[Confirm] External process API failed:`, processErr)
-      // throw new Error(`فشلت عملية المعالجة الخارجية: ${processErr.message}`)
-    }
-
-    // 3. Mark session COMPLETED only after external API success
+    // 2. Mark session COMPLETED
     await prisma.executionSession.update({
       where: { id },
       data: {
         status: "COMPLETED",
-        serialNumber,
+        serialNumber: serialNumber || "SYSTEM_PROCESSED",
         usedDeviceIds: usedDeviceIds || {},
         sourceMetadata: sourceMetadata || {},
         endedAt: new Date(),

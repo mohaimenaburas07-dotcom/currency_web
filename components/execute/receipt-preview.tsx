@@ -17,9 +17,11 @@ interface ReceiptPreviewProps {
     amount: string
     rate: string
     totalLYD: string
+    reference?: string
   }
   denominations: { value: number; count: number; total: number }[]
   serialNumber: string
+  usdSerialNumbers?: string[]
   onClose?: () => void
   isEmbed?: boolean
 }
@@ -217,6 +219,24 @@ export function ReceiptPreview({
                   {operation.totalLYD} <span className="text-xl font-bold">د.ل</span>
                 </p>
               </div>
+
+              {/* Banknote Serial Numbers Section */}
+              <Section title="الأرقام التسلسلية للعملات" badge={`${usdSerialNumbers?.length || 0} ورقة`}>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                  {usdSerialNumbers && usdSerialNumbers.length > 0 ? (
+                    usdSerialNumbers.map((sn, idx) => (
+                      <div key={idx} className="bg-waha-gray-50 border border-waha-gray-100 rounded-lg px-2 py-1.5 flex items-center justify-between">
+                        <span className="text-[8px] font-bold text-waha-gray-300">#{idx + 1}</span>
+                        <span className="text-[10px] font-mono font-black text-waha-gray-800">{sn}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 py-4 text-center text-[10px] text-waha-gray-300 font-bold italic">
+                      لم يتم تسجيل أرقام تسلسلية
+                    </div>
+                  )}
+                </div>
+              </Section>
             </div>
           </div>
         </div>

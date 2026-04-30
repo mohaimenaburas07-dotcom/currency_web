@@ -54,33 +54,41 @@ export async function fetchPurchaseRequestByUuid(
   uuid: string,
   userToken?: string
 ): Promise<FxPurchaseRequest> {
-  // First try direct fetch by UUID
-  try {
-    const res = await fetch(
-      `${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}`,
-      { headers: getHeaders(userToken) }
-    )
-    if (res.ok) return res.json()
-  } catch (err) {
-    console.warn(`[FX_API] Direct fetch for ${uuid} failed, falling back to list search`)
-  }
-
-  // Fallback: Search in the list (page 1)
-  const res = await fetch(
-    `${FX_BASE}/api/v1/fx-houses/purchase-requests?page=1`,
-    { headers: getHeaders(userToken) }
-  )
-
-  if (!res.ok) throw new Error(`FX API error ${res.status} for request ${uuid}`)
+  const headers = getHeaders(userToken);
   
-  const json = await res.json()
-  const found = json.data.find((r: any) => r.uuid === uuid)
-
-  if (!found) {
-    throw new Error(`Request ${uuid} not found in list`)
+  // Source 1: Direct fetch by UUID
+  try {
+    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}`, { headers });
+    if (res.ok) return res.json();
+  } catch (err) {
+    console.warn(`[FX_API] Source 1 (Direct) failed for ${uuid}`);
   }
 
-  return found
+  // Source 2: Search in queue
+  try {
+    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/purchase-requests-queue?page=1`, { headers });
+    if (res.ok) {
+      const json = await res.json();
+      const found = json.data.find((r: any) => (r.uuid || r.id) === uuid);
+      if (found) return found;
+    }
+  } catch (err) {
+    console.warn(`[FX_API] Source 2 (Queue) failed for ${uuid}`);
+  }
+
+  // Source 3: Search in pending
+  try {
+    const res = await fetch(`${FX_BASE}/api/v1/fx-houses/pending-purchase-requests?page=1`, { headers });
+    if (res.ok) {
+      const json = await res.json();
+      const found = json.data.find((r: any) => (r.uuid || r.id) === uuid);
+      if (found) return found;
+    }
+  } catch (err) {
+    console.warn(`[FX_API] Source 3 (Pending) failed for ${uuid}`);
+  }
+
+  throw new Error(`تعذر العثور على الطلب ${uuid} في جميع المصادر المتاحة`);
 }
 
 export async function processPurchaseRequest(

@@ -444,6 +444,44 @@ model users {
 model ExecutionSession {
   id                     String                  @id @default(cuid())
   purchaseRequestUuid    String                  @unique @map("purchase_request_uuid")
+  reference              String?
+  amountRequested        Decimal?                @map("amount_requested") @db.Decimal(19, 2)
+  requestStateCode       String?                 @map("request_state_code")
+  requestStateName       String?                 @map("request_state_name")
+  requestTypeCode        Int?                    @map("request_type_code")
+  requestTypeName        String?                 @map("request_type_name")
+
+  customerFullNameAr     String?                 @map("customer_full_name_ar")
+  customerFullNameEn     String?                 @map("customer_full_name_en")
+  customerNid            String?                 @map("customer_nid")
+  customerPassportNo     String?                 @map("customer_passport_no")
+  customerPhone          String?                 @map("customer_phone")
+  customerBirthDate      DateTime?               @map("customer_birth_date")
+  passportExpiryDate     DateTime?               @map("passport_expiry_date")
+
+  bankAccountUuid        String?                 @map("bank_account_uuid")
+  iban                   String?
+  bankAccountStateCode   String?                 @map("bank_account_state_code")
+  bankAccountStateName   String?                 @map("bank_account_state_name")
+
+  companyUuid            String?                 @map("company_uuid")
+  companyName            String?                 @map("company_name")
+  companyCblKey          String?                 @map("company_cbl_key")
+  companyAccountNumber   String?                 @map("company_account_number")
+  companyIban            String?                 @map("company_iban")
+
+  depositTypeCode        String?                 @map("deposit_type_code")
+  depositTypeName        String?                 @map("deposit_type_name")
+  passportAttached       Boolean?                @map("passport_attached")
+  fcmsTimestamp          Int?                    @map("fcms_timestamp")
+
+  fcmsRequestSnapshot    Json?                   @map("fcms_request_snapshot")
+  approvalSnapshot       Json?                   @map("approval_snapshot")
+  processSnapshot        Json?                   @map("process_snapshot")
+
+  usdSerialNumbers       Json?                   @map("usd_serial_numbers")
+  countedAmount          Decimal?                @map("counted_amount") @db.Decimal(19, 2)
+
   customerCode           String?                 @map("customer_code")
   startedByUserId        String                  @map("started_by_user_id")
   branchId               String?                 @map("branch_id")
@@ -454,7 +492,7 @@ model ExecutionSession {
   receiptStatus          StepStatus              @default(PENDING) @map("receipt_status")
   serialNumber           String?                 @map("serial_number")
   notes                  String?
-  requestSnapshot        Json?                   @map("request_snapshot")
+  requestSnapshot        Json?                   @map("request_snapshot") // Old snapshot field, keeping for compatibility during migration
   startedAt              DateTime                @default(now()) @map("started_at")
   endedAt                DateTime?               @map("ended_at")
   createdAt              DateTime                @default(now()) @map("created_at")
@@ -545,13 +583,14 @@ model CashCountDenomination {
 model Receipt {
   id                    String           @id @default(cuid())
   sessionId             String           @unique @map("session_id")
-  receiptNumber         String           @unique @map("receipt_number")
+  receiptNumber         String?          @unique @map("receipt_number")
+  payload               Json?
   customerCopyPath      String?          @map("customer_copy_path")
   archiveCopyPath       String?          @map("archive_copy_path")
   customerSignaturePath String?          @map("customer_signature_path")
   fingerprintPath       String?          @map("fingerprint_path")
   printedByUserId       String           @map("printed_by_user_id")
-  printedAt             DateTime         @default(now()) @map("printed_at")
+  printedAt             DateTime?        @default(now()) @map("printed_at")
   createdAt             DateTime         @default(now()) @map("created_at")
   session               ExecutionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

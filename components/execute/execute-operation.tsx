@@ -53,11 +53,12 @@ import { toast } from "sonner"
 
 const STEPS = [
   { id: 1, label: "مراجعة الحجز", icon: FileText },
-  { id: 2, label: "الإيصال والطباعة", icon: Printer },
-  { id: 3, label: "عدّ الأموال", icon: Calculator },
-  { id: 4, label: "تأكيد المعالجة", icon: Zap },
-  { id: 5, label: "التسجيل والتوثيق", icon: Camera },
-  { id: 6, label: "التحقق وإنهاء الطلب", icon: CheckCircle },
+  { id: 2, label: "عدّ الأموال", icon: Calculator },
+  { id: 3, label: "الإيصال والطباعة", icon: Printer },
+  { id: 4, label: "المعالجة (FCMS)", icon: Zap },
+  { id: 5, label: "التوثيق المرئي", icon: Camera },
+  { id: 6, label: "رفع المستندات", icon: CloudUpload },
+  { id: 7, label: "إنهاء العملية", icon: CheckCircle },
 ]
 
 export function ExecuteOperation() {
@@ -827,23 +828,6 @@ export function ExecuteOperation() {
           {currentStep === 1 && <Step1Review customer={dispCustomer} operation={dispOperation} onNext={() => goToStep(2)} setCustomer={setCustomer} />}
           
           {currentStep === 2 && (
-            <Step6Receipt 
-              session={session}
-              customer={dispCustomer} 
-              operation={dispOperation} 
-              denominations={dispDenominations} 
-              serialNumber={serialNumber} 
-              onPrint={handleHardwarePrint}
-              hardwareStatus={hardwareStatus}
-              devicesCollection={hardwareConfigData?.devicesCollection}
-              selectedDeviceId={selectedDevices['PRINTER']}
-              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, PRINTER: id }))}
-              trackSource={trackSource}
-              onNext={() => goToStep(3)}
-            />
-          )}
-
-          {currentStep === 3 && (
             <Step4Cash 
               session={session} 
               operation={dispOperation} 
@@ -851,7 +835,7 @@ export function ExecuteOperation() {
               onUpload={handleExcelUpload}
               onHardwareRead={handleHardwareRead}
               hardwareStatus={hardwareStatus}
-              onNext={handleProcessRequest} 
+              onNext={() => goToStep(3)} 
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['COUNTER']}
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, COUNTER: id }))}
@@ -861,8 +845,29 @@ export function ExecuteOperation() {
             />
           )}
 
+          {currentStep === 3 && (
+            <Step6Receipt 
+              session={session}
+              customer={dispCustomer} 
+              operation={dispOperation} 
+              denominations={dispDenominations} 
+              serialNumber={serialNumber} 
+              usdSerialNumbers={session?.cashCountResult?.usdSerialNumbers}
+              onPrint={handleHardwarePrint}
+              hardwareStatus={hardwareStatus}
+              devicesCollection={hardwareConfigData?.devicesCollection}
+              selectedDeviceId={selectedDevices['PRINTER']}
+              onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, PRINTER: id }))}
+              trackSource={trackSource}
+              onNext={() => goToStep(4)}
+            />
+          )}
+
           {currentStep === 4 && (
-            <StepProcessed onNext={() => goToStep(5)} />
+            <Step4Process 
+              session={session} 
+              onNext={() => goToStep(5)} 
+            />
           )}
 
           {currentStep === 5 && (
@@ -889,13 +894,22 @@ export function ExecuteOperation() {
               customer={dispCustomer} 
               isVerified={isVerified} 
               onVerify={handleVerifyIdentity} 
-              onNext={handleConfirmOperation} 
+              onNext={() => goToStep(7)} 
               hardwareStatus={hardwareStatus} 
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['SCANNER']}
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, SCANNER: id }))}
               trackSource={trackSource}
               isConfirming={isConfirming}
+            />
+          )}
+
+          {currentStep === 7 && (
+            <Step7Finish 
+              customer={dispCustomer}
+              operation={dispOperation}
+              onFinish={handleConfirmOperation}
+              isLoading={isConfirming}
             />
           )}
         </div>
@@ -917,8 +931,8 @@ export function ExecuteOperation() {
            </Button>
         </div>
 
-        {/* ── Side Summary Panel (Sticky Right, steps 2-5) ── */}
-        {currentStep > 1 && currentStep < 6 && (
+        {/* ── Side Summary Panel (Sticky Right, steps 2-6) ── */}
+        {currentStep > 1 && currentStep < 7 && (
           <div className="lg:col-span-4 sticky top-24 space-y-4">
             <Card className="border-0 shadow-card bg-white rounded-3xl overflow-hidden">
                <div className="bg-waha-gray-900 p-5 text-white">
@@ -967,26 +981,131 @@ export function ExecuteOperation() {
 
 // --- Internal Step Components ---
 
-function StepProcessed({ onNext }: any) {
+function Step4Process({ session, onNext }: any) {
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<any>(null)
+
+  const handleProcess = async () => {
+    setIsProcessing(true)
+    setError(null)
+    try {
+      const token = localStorage.getItem("alwaha_auth_token")
+      const res = await fetch(`/api/execution-sessions/${session.id}/process-fcms`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "current-user" })
+      })
+      const result = await res.json()
+      if (result.success) {
+        toast.success("تمت المعالجة في النظام المركزي بنجاح")
+        onNext()
+      } else {
+        setError(result)
+        toast.error(result.error || "فشلت المعالجة")
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   return (
     <Card className="border-0 shadow-card bg-white rounded-[3rem] overflow-hidden">
       <CardContent className="p-12">
-        <div className="flex flex-col items-center justify-center text-center space-y-6">
+        <div className="flex flex-col items-center justify-center text-center space-y-8">
+          <div className={cn(
+            "w-24 h-24 rounded-full flex items-center justify-center shadow-lg transition-all duration-500",
+            error ? "bg-red-50 text-red-600 shadow-red-500/10" : "bg-waha-gray-50 text-waha-gold shadow-waha-gold/10"
+          )}>
+            {isProcessing ? <Loader2 className="w-12 h-12 animate-spin" /> : error ? <AlertCircle className="w-12 h-12" /> : <Zap className="w-12 h-12" />}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-3xl font-black text-waha-gray-900">
+              {error ? "فشل في معالجة الطلب" : "المعالجة المركزية (FCMS)"}
+            </h2>
+            <p className="text-waha-gray-500 font-bold max-w-md mx-auto">
+              {error 
+                ? `خطأ من النظام المركزي: ${error.error}`
+                : "سيتم إرسال بيانات العد والأرقام التسلسلية إلى مصرف ليبيا المركزي لتأكيد العملية."}
+            </p>
+            {error?.errorCode && (
+               <div className="mt-4 px-4 py-2 bg-red-50 text-red-700 rounded-xl inline-block text-xs font-black border border-red-100">
+                  كود الخطأ: {error.errorCode}
+               </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-4 w-full max-w-xs">
+            {!error ? (
+              <Button 
+                onClick={handleProcess}
+                disabled={isProcessing}
+                className="h-16 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl gap-3 text-lg"
+              >
+                {isProcessing ? "جاري المعالجة..." : "إرسال البيانات الآن"}
+                {!isProcessing && <ChevronLeft className="w-5 h-5" />}
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleProcess}
+                className="h-16 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl gap-3 text-lg"
+              >
+                إعادة المحاولة
+              </Button>
+            )}
+            
+            {error && (
+              <p className="text-[10px] text-waha-gray-400 font-bold">
+                في حالة استمرار المشكلة، يرجى التواصل مع الدعم الفني
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Step7Finish({ customer, operation, onFinish, isLoading }: any) {
+  return (
+    <Card className="border-0 shadow-card bg-white rounded-[3rem] overflow-hidden">
+      <CardContent className="p-12">
+        <div className="flex flex-col items-center justify-center text-center space-y-8">
           <div className="w-24 h-24 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/10">
             <CheckCircle className="w-12 h-12" />
           </div>
+          
           <div className="space-y-2">
-            <h2 className="text-3xl font-black text-waha-gray-900">تمت معالجة الطلب بنجاح</h2>
-            <p className="text-waha-gray-500 font-bold max-w-sm">
-              تم تحديث حالة الطلب في النظام المركزي بنجاح. يمكنك الآن الانتقال لمرحلة التوثيق المرئي.
+            <h2 className="text-3xl font-black text-waha-gray-900">جاهز للإنهاء</h2>
+            <p className="text-waha-gray-500 font-bold max-w-sm mx-auto">
+              تم إتمام جميع الخطوات بنجاح. اضغط على الزر أدناه لحفظ العملية نهائياً وإغلاق الجلسة.
             </p>
           </div>
+
+          <div className="bg-waha-gray-50 rounded-3xl p-8 w-full max-w-md border border-waha-gray-100 space-y-4">
+             <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-waha-gray-400">العميل</span>
+                <span className="text-sm font-black text-waha-gray-900">{customer.name}</span>
+             </div>
+             <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-waha-gray-400">المبلغ</span>
+                <span className="text-sm font-black text-emerald-600" dir="ltr">{operation.amount} {operation.currency}</span>
+             </div>
+             <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-waha-gray-400">رقم الحجز</span>
+                <span className="text-sm font-black text-waha-gray-900">{operation.id}</span>
+             </div>
+          </div>
+
           <Button 
-            onClick={onNext} 
-            className="h-14 px-12 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl shadow-waha-gray-900/10 gap-3 text-lg"
+            onClick={onFinish}
+            disabled={isLoading}
+            className="h-16 px-12 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl shadow-waha-gray-900/10 gap-3 text-lg"
           >
-            <span>المتابعة للمرحلة التالية</span>
-            <ChevronLeft className="w-5 h-5" />
+            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ShieldCheck className="w-6 h-6 text-waha-gold" />}
+            <span>إنهاء وحفظ العملية نهائياً</span>
           </Button>
         </div>
       </CardContent>
