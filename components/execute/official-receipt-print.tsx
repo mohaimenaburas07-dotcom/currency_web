@@ -49,6 +49,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
   
   const denominations = session.cashCountResult?.denominations || []
+  const banknoteSerials = session.cashCountResult?.usdSerialNumbers || []
 
   const renderCopy = (copyType: 'CUSTOMER' | 'ARCHIVE', label: string) => (
     <div className="receipt-copy flex flex-col w-[190mm] mx-auto bg-white" style={{ pageBreakInside: 'avoid' }}>
@@ -156,6 +157,24 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="flex-1 px-2 flex items-center font-bold italic">{amountWords}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">المبلغ بالحروف</div>
         </div>
+
+        {/* Banknote Serial Numbers List */}
+        {banknoteSerials.length > 0 && (
+          <div className="border-b border-gray-400 p-2 bg-gray-50/30">
+            <div className="flex justify-between items-center mb-1 border-b border-gray-200 pb-0.5">
+              <span className="text-[8px] font-bold text-gray-400 uppercase">Banknote Serial Numbers ({banknoteSerials.length})</span>
+              <span className="text-[8px] font-bold text-gray-400" dir="rtl">الأرقام التسلسلية للعملات الورقية</span>
+            </div>
+            <div className="grid grid-cols-5 gap-y-0.5 gap-x-2 text-[8px] font-mono leading-tight">
+              {banknoteSerials.map((sn: string, i: number) => (
+                <div key={i} className="flex justify-between border-b border-gray-100/50">
+                  <span className="opacity-40">{i+1}.</span>
+                  <span className="font-bold">{sn}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Row 7: Date & Signature */}
         <div className="flex items-stretch min-h-[3rem]">
