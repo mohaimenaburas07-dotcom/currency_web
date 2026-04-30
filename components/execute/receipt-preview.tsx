@@ -31,6 +31,7 @@ export function ReceiptPreview({
   operation,
   denominations,
   serialNumber,
+  usdSerialNumbers,
   onClose,
   isEmbed = false,
 }: ReceiptPreviewProps) {
