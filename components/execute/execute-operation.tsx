@@ -733,7 +733,8 @@ export function ExecuteOperation() {
 
   // Resilient rate calculation: check contract first, then common rate fields
   const amountNum = parseFloat(request?.amount_requested || "0")
-  const rate = request?.contract?.bank_transfer_price || request?.rate || request?.exchange_rate || 0
+  const rateRaw = request?.contract?.bank_transfer_price || request?.rate || request?.exchange_rate || 0
+  const rate = typeof rateRaw === 'string' ? parseFloat(rateRaw) : Number(rateRaw)
   const totalLYD = amountNum * rate
 
   const dispOperation = {
