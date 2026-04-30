@@ -71,6 +71,7 @@ export default function RequestsQueuePage() {
         throw new Error(err.error || "Approval failed")
       }
       toast.success("تمت الموافقة على الطلب بنجاح")
+      router.push(`/execute?id=${uuid}`)
       fetchQueue()
     } catch (error: any) {
       toast.error(error.message)

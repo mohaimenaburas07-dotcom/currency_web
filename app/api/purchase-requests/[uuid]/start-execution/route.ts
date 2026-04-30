@@ -71,17 +71,51 @@ export async function POST(
     // Fetch from CBS - but handle failure gracefully if user wants to "stop depending"
     let request: any = null;
     try {
+      console.log(`[start-execution] Attempting to fetch request ${uuid} from CBS...`);
       request = await fetchPurchaseRequestByUuid(uuid, token)
     } catch (err) {
-      console.warn("[start-execution] CBS API failed, trying local DB fallback:", err);
-      // Try to find in local fx_requests as a fallback
-      const localReq = await prisma.fx_requests.findFirst({
-        where: { id: uuid }
-      });
-      if (localReq) {
-        request = localReq;
-      } else {
-        throw err; // Re-throw if even local fails
+      console.warn("[start-execution] fetchPurchaseRequestByUuid failed, trying fallback lists:", err);
+      
+      // Attempt to find in other possible list endpoints if direct fetch failed
+      try {
+        const endpoints = [
+          "/api/v1/fx-houses/pending-purchase-requests",
+          "/api/v1/fx-houses/purchase-requests-queue"
+        ];
+        
+        const FX_BASE = process.env.FX_HOUSE_API || "https://fcms-banks.cbl.gov.ly";
+        
+        for (const endpoint of endpoints) {
+          console.log(`[start-execution] Searching in ${endpoint}...`);
+          const res = await fetch(`${FX_BASE}${endpoint}?page=1`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const found = json.data.find((r: any) => r.uuid === uuid);
+            if (found) {
+              console.log(`[start-execution] Found request in ${endpoint}`);
+              request = found;
+              break;
+            }
+          }
+        }
+      } catch (fallbackErr) {
+        console.error("[start-execution] Fallback list search failed:", fallbackErr);
+      }
+
+      if (!request) {
+        console.warn("[start-execution] CBS search failed completely, trying local DB fallback");
+        // Try to find in local fx_requests as a fallback
+        const localReq = await prisma.fx_requests.findFirst({
+          where: { id: uuid }
+        });
+        if (localReq) {
+          request = localReq;
+        } else {
+          console.error("[start-execution] No data found for request:", uuid);
+          throw new Error(`تعذر العثور على بيانات الطلب ${uuid} في النظام المركزي أو المحلي`);
+        }
       }
     }
 

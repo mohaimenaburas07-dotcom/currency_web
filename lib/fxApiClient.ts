@@ -54,6 +54,18 @@ export async function fetchPurchaseRequestByUuid(
   uuid: string,
   userToken?: string
 ): Promise<FxPurchaseRequest> {
+  // First try direct fetch by UUID
+  try {
+    const res = await fetch(
+      `${FX_BASE}/api/v1/fx-houses/purchase-requests/${uuid}`,
+      { headers: getHeaders(userToken) }
+    )
+    if (res.ok) return res.json()
+  } catch (err) {
+    console.warn(`[FX_API] Direct fetch for ${uuid} failed, falling back to list search`)
+  }
+
+  // Fallback: Search in the list (page 1)
   const res = await fetch(
     `${FX_BASE}/api/v1/fx-houses/purchase-requests?page=1`,
     { headers: getHeaders(userToken) }
