@@ -288,6 +288,38 @@ export function ExecuteOperation() {
     loadData()
   }, [loadData])
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (currentStep >= 3 && currentStep < 6) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    const handleLinkClick = (e: MouseEvent) => {
+      if (currentStep >= 3 && currentStep < 6) {
+        const target = e.target as HTMLElement;
+        const anchor = target.closest('a');
+        // Prevent navigating away if they click an external/different link
+        if (anchor && anchor.href && !anchor.href.includes(window.location.pathname)) {
+          if (!window.confirm("تحذير: لا يمكنك مغادرة الصفحة قبل إتمام العملية بالكامل. هل أنت متأكد من رغبتك في المغادرة؟")) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleLinkClick, { capture: true });
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleLinkClick, { capture: true });
+    };
+  }, [currentStep]);
+
   const handleVerifyIdentity = async (docData?: string, metadata?: any) => {
     if (!session?.id) return
     try {
@@ -966,6 +998,7 @@ export function ExecuteOperation() {
               variant="outline" 
               className="w-full h-12 rounded-2xl border-waha-gray-200 text-waha-gray-600 font-bold text-xs gap-2 hover:bg-waha-gray-50"
               onClick={() => goToStep(currentStep - 1)}
+              disabled={currentStep >= 3}
             >
               <ArrowRight className="w-4 h-4" /> الرجوع للسابق
             </Button>
