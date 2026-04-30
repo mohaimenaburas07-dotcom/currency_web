@@ -15,6 +15,7 @@ export async function POST(
 ) {
   const { uuid } = await params
   const { ipAddress, userAgent } = extractRequestMeta(req)
+  const body = await req.json().catch(() => ({}))
 
   try {
     // 1. Check if any session exists for this request
@@ -64,16 +65,19 @@ export async function POST(
       )
     }
 
-    // 2. Fetch the purchase request from Spring Boot to snapshot it
+    // 2. Fetch or Use provided snapshot
     const authHeader = req.headers.get("Authorization")
     const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : undefined
     
-    // Fetch from CBS - but handle failure gracefully if user wants to "stop depending"
-    let request: any = null;
-    try {
-      console.log(`[start-execution] Attempting to fetch request ${uuid} from CBS...`);
-      request = await fetchPurchaseRequestByUuid(uuid, token)
-    } catch (err) {
+    let request: any = body.requestSnapshot || null;
+    
+    if (request) {
+      console.log(`[start-execution] Using provided snapshot for ${uuid}`);
+    } else {
+      try {
+        console.log(`[start-execution] Attempting to fetch request ${uuid} from CBS...`);
+        request = await fetchPurchaseRequestByUuid(uuid, token)
+      } catch (err) {
       console.warn("[start-execution] fetchPurchaseRequestByUuid failed, trying fallback lists:", err);
       
       // Attempt to find in other possible list endpoints if direct fetch failed

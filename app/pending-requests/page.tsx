@@ -39,6 +39,7 @@ export default function PendingRequestsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [data, setData] = useState<any>(null)
   const [page, setPage] = useState(1)
+  const [isExecuting, setIsExecuting] = useState<string | null>(null)
 
   const [filters, setFilters] = useState({
     reference: "",
@@ -79,20 +80,47 @@ export default function PendingRequestsPage() {
     fetchRequests()
   }
 
-  const handleApprove = async (uuid: string, ts?: number) => {
+  const handleExecute = async (req: any) => {
     try {
-      setApprovingId(uuid)
-      const res = await fetch(`/api/fx/approve/${uuid}`, { 
+      setIsExecuting(req.uuid)
+      const token = localStorage.getItem("alwaha_auth_token")
+      const res = await fetch(`/api/purchase-requests/${req.uuid}/start-execution`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          userId: "current-user",
+          requestSnapshot: req
+        })
+      })
+      
+      const sessionData = await res.json()
+      if (!res.ok) throw new Error(sessionData.error || "Failed to start execution")
+      
+      router.push(`/execute?id=${sessionData.sessionId}`)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsExecuting(null)
+    }
+  }
+
+  const handleApprove = async (req: any) => {
+    try {
+      setApprovingId(req.uuid)
+      const res = await fetch(`/api/fx/approve/${req.uuid}`, { 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ts: ts || Math.floor(Date.now() / 1000) })
+        body: JSON.stringify({ ts: req.timestamp || Math.floor(Date.now() / 1000) })
       })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Approval failed")
       }
       toast.success("تمت الموافقة على الطلب بنجاح")
-      router.push(`/execute?id=${uuid}`)
+      handleExecute(req)
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -230,11 +258,11 @@ export default function PendingRequestsPage() {
                               <span>التفاصيل</span>
                             </Button>
                             <Button 
-                              disabled={approvingId === req.uuid}
-                              onClick={() => handleApprove(req.uuid, req.timestamp)}
+                              disabled={approvingId === req.uuid || isExecuting === req.uuid}
+                              onClick={() => handleApprove(req)}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 px-6 font-bold text-xs gap-2 shadow-lg shadow-emerald-600/10"
                             >
-                              {approvingId === req.uuid ? (
+                              {approvingId === req.uuid || isExecuting === req.uuid ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               ) : (
                                 <CheckCircle className="w-3.5 h-3.5" />
@@ -393,7 +421,7 @@ export default function PendingRequestsPage() {
                     <Button 
                       onClick={() => {
                         setIsDetailsOpen(false);
-                        handleApprove(selectedRequest.uuid, selectedRequest.timestamp);
+                        handleApprove(selectedRequest);
                       }}
                       className="bg-waha-gray-900 hover:bg-black text-white rounded-xl font-bold text-xs h-11 px-8 shadow-xl shadow-waha-gray-900/10"
                     >

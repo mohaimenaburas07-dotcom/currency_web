@@ -37,6 +37,7 @@ export default function RequestsQueuePage() {
   const [data, setData] = useState<any>(null)
   const [page, setPage] = useState(1)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [isExecuting, setIsExecuting] = useState<string | null>(null)
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
@@ -58,21 +59,47 @@ export default function RequestsQueuePage() {
     fetchQueue()
   }, [page])
 
-  const handleApprove = async (uuid: string, ts?: number) => {
+  const handleExecute = async (req: any) => {
     try {
-      setApprovingId(uuid)
-      const res = await fetch(`/api/fx/approve/${uuid}`, { 
+      setIsExecuting(req.uuid)
+      const token = localStorage.getItem("alwaha_auth_token")
+      const res = await fetch(`/api/purchase-requests/${req.uuid}/start-execution`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          userId: "current-user",
+          requestSnapshot: req
+        })
+      })
+      
+      const sessionData = await res.json()
+      if (!res.ok) throw new Error(sessionData.error || "Failed to start execution")
+      
+      router.push(`/execute?id=${sessionData.sessionId}`)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsExecuting(null)
+    }
+  }
+
+  const handleApprove = async (req: any) => {
+    try {
+      setApprovingId(req.uuid)
+      const res = await fetch(`/api/fx/approve/${req.uuid}`, { 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ts: ts || Math.floor(Date.now() / 1000) })
+        body: JSON.stringify({ ts: req.timestamp || Math.floor(Date.now() / 1000) })
       })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Approval failed")
       }
       toast.success("تمت الموافقة على الطلب بنجاح")
-      router.push(`/execute?id=${uuid}`)
-      fetchQueue()
+      handleExecute(req)
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -178,21 +205,22 @@ export default function RequestsQueuePage() {
                              {req.state?.code === 'pending' && (
                                <Button 
                                  size="sm"
-                                 disabled={approvingId === req.uuid}
-                                 onClick={() => handleApprove(req.uuid, req.timestamp)}
+                                 disabled={approvingId === req.uuid || isExecuting === req.uuid}
+                                 onClick={() => handleApprove(req)}
                                  className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold gap-1.5 px-3"
                                >
-                                 {approvingId === req.uuid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                 {approvingId === req.uuid || isExecuting === req.uuid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
                                  اعتماد
                                </Button>
                              )}
                              {(req.state?.code === 'approved' || req.state?.code === 'processed') && (
                                <Button 
                                  size="sm"
-                                 onClick={() => router.push(`/execute?id=${req.uuid}`)}
+                                 disabled={isExecuting === req.uuid}
+                                 onClick={() => handleExecute(req)}
                                  className="h-8 rounded-lg bg-waha-gray-900 hover:bg-black text-white text-[10px] font-bold gap-1.5 px-3"
                                >
-                                 <ArrowRight className="w-3 h-3" />
+                                 {isExecuting === req.uuid ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />}
                                  {req.state?.code === 'processed' ? "عرض" : "تنفيذ"}
                                </Button>
                              )}
@@ -323,7 +351,7 @@ export default function RequestsQueuePage() {
                           <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.company?.name || "—"}</p>
                        </div>
                        <div className="space-y-1">
-                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">رمز CBL</span>
+                          <span className="text-[9px] font-black text-waha-gold uppercase">رمز CBL</span>
                           <p className="text-sm font-mono font-bold text-waha-gold">{selectedRequest.company?.cbl_key || "—"}</p>
                        </div>
                        <div className="space-y-1">
@@ -349,22 +377,22 @@ export default function RequestsQueuePage() {
                       <Button 
                         onClick={() => {
                           setIsDetailsOpen(false);
-                          handleApprove(selectedRequest.uuid, selectedRequest.timestamp);
+                          handleApprove(selectedRequest);
                         }}
                         className="bg-waha-gray-900 hover:bg-black text-white rounded-xl font-bold text-xs h-11 px-8 shadow-xl shadow-waha-gray-900/10"
                       >
                         اعتماد الطلب الآن
                       </Button>
                     )}
-                    {selectedRequest.state?.code === 'approved' && (
+                    {(selectedRequest.state?.code === 'approved' || selectedRequest.state?.code === 'processed') && (
                       <Button 
                         onClick={() => {
                           setIsDetailsOpen(false);
-                          router.push(`/execute?id=${selectedRequest.uuid}`);
+                          handleExecute(selectedRequest);
                         }}
                         className="bg-waha-gray-900 hover:bg-black text-white rounded-xl font-bold text-xs h-11 px-8 shadow-xl shadow-waha-gray-900/10"
                       >
-                        تنفيذ العملية
+                        {selectedRequest.state?.code === 'processed' ? "عرض التفاصيل" : "تنفيذ العملية"}
                       </Button>
                     )}
                   </div>
