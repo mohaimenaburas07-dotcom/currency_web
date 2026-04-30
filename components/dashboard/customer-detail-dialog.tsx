@@ -16,6 +16,7 @@ import {
   FileText,
   DollarSign,
   Trash2,
+  Plus,
 } from "lucide-react"
 import { 
   Dialog, 
@@ -45,6 +46,7 @@ interface CustomerDetailDialogProps {
 export function CustomerDetailDialog({ customerId, open, onOpenChange }: CustomerDetailDialogProps) {
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     if (customerId && open) {
@@ -89,11 +91,42 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
       const res = await fetch(`/api/media/delete/${mediaId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("فشل الحذف")
       toast.success("تم حذف المرفق")
-      // Refresh customer data
-      onOpenChange(false)
-      setTimeout(() => onOpenChange(true), 100)
+      refreshData()
     } catch (err) {
       toast.error("حدث خطأ أثناء الحذف")
+    }
+  }
+
+  const refreshData = () => {
+    onOpenChange(false)
+    setTimeout(() => onOpenChange(true), 100)
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !customerId) return
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("userId", "current-user")
+    formData.append("documentType", "CUSTOMER_DOC")
+
+    try {
+      const res = await fetch(`/api/customers/${customerId}/add-document`, {
+        method: "POST",
+        body: formData
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message || "فشل رفع الملف")
+      }
+      toast.success("تم رفع الملف بنجاح")
+      refreshData()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -211,7 +244,27 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                 </TabsContent>
 
                 <TabsContent value="media" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between bg-waha-gray-50 p-4 rounded-2xl border border-waha-gray-100">
+                      <div>
+                        <p className="text-xs font-black text-waha-gray-900">إضافة مرفقات جديدة</p>
+                        <p className="text-[10px] text-waha-gray-400 font-bold">يمكنك رفع وثيقة الهوية أو أي مستندات إضافية هنا</p>
+                      </div>
+                      <div className="relative">
+                        <input 
+                          type="file" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                          onChange={handleFileUpload}
+                          disabled={isUploading}
+                        />
+                        <Button disabled={isUploading} className="bg-waha-gray-900 text-white h-10 px-4 rounded-xl text-xs gap-2">
+                          {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                          إضافة مرفق
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
                     {customer.reservations?.filter((r: any) => r.media?.length > 0).length === 0 ? (
                       <EmptyState message="لم يتم التقاط أي وسائط لهذا العميل بعد" />
                     ) : (

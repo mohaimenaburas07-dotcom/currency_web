@@ -56,10 +56,9 @@ const STEPS = [
   { id: 1, label: "مراجعة الحجز", icon: FileText },
   { id: 2, label: "عدّ الأموال", icon: Calculator },
   { id: 3, label: "الإيصال والطباعة", icon: Printer },
-  { id: 4, label: "المعالجة (FCMS)", icon: Zap },
-  { id: 5, label: "التوثيق المرئي", icon: Camera },
-  { id: 6, label: "رفع المستندات", icon: CloudUpload },
-  { id: 7, label: "إنهاء العملية", icon: CheckCircle },
+  { id: 4, label: "التوثيق المرئي", icon: Camera },
+  { id: 5, label: "رفع المستندات", icon: CloudUpload },
+  { id: 6, label: "إنهاء العملية", icon: CheckCircle },
 ]
 
 export function ExecuteOperation() {
@@ -169,10 +168,7 @@ export function ExecuteOperation() {
       setIsProcessing(true)
       const token = localStorage.getItem("alwaha_auth_token")
       const ts = request?.timestamp || Math.floor(Date.now() / 1000);
-      if (!request?.timestamp) {
-        console.warn("[ExecuteOperation] request.timestamp missing, falling back to current time");
-      }
-
+      
       const res = await fetch(`/api/fx/process/${request.uuid}`, {
         method: "PATCH",
         headers: {
@@ -186,12 +182,13 @@ export function ExecuteOperation() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({ error: "فشلت عملية المعالجة في النظام المركزي" }))
         throw new Error(err.error || "فشلت عملية المعالجة في النظام المركزي")
       }
 
       toast.success("تمت معالجة الطلب بنجاح")
-      goToStep(4)
+      await loadData()
+      goToStep(3)
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -843,13 +840,13 @@ export function ExecuteOperation() {
               onUpload={handleExcelUpload}
               onHardwareRead={handleHardwareRead}
               hardwareStatus={hardwareStatus}
-              onNext={() => goToStep(3)} 
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['COUNTER']}
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, COUNTER: id }))}
               trackSource={trackSource}
               extractionMessage={extractionMessage}
               isLoading={isProcessing}
+              onNext={handleProcessRequest}
             />
           )}
 
@@ -872,13 +869,6 @@ export function ExecuteOperation() {
           )}
 
           {currentStep === 4 && (
-            <Step4Process 
-              session={session} 
-              onNext={() => goToStep(5)} 
-            />
-          )}
-
-          {currentStep === 5 && (
             <Step3Documentation 
               isRecording={isRecording} 
               setIsRecording={setIsRecording} 
@@ -888,7 +878,7 @@ export function ExecuteOperation() {
               hardwareStatus={hardwareStatus}
               hardwareConfig={hardwareConfigData}
               session={session}
-              onNext={() => goToStep(6)} 
+              onNext={() => goToStep(5)} 
               onRefreshSession={loadData}
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['CAMERA']}
@@ -897,7 +887,7 @@ export function ExecuteOperation() {
             />
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 5 && (
             <Step2Identity 
               customer={dispCustomer} 
               isVerified={isVerified} 
@@ -988,93 +978,6 @@ export function ExecuteOperation() {
 }
 
 // --- Internal Step Components ---
-
-function Step4Process({ session, onNext }: any) {
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<any>(null)
-
-  const handleProcess = async () => {
-    setIsProcessing(true)
-    setError(null)
-    try {
-      const token = localStorage.getItem("alwaha_auth_token")
-      const res = await fetch(`/api/execution-sessions/${session.id}/process-fcms`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "current-user" })
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("تمت المعالجة في النظام المركزي بنجاح")
-        onNext()
-      } else {
-        setError(result)
-        toast.error(result.error || "فشلت المعالجة")
-      }
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  return (
-    <Card className="border-0 shadow-card bg-white rounded-[3rem] overflow-hidden">
-      <CardContent className="p-12">
-        <div className="flex flex-col items-center justify-center text-center space-y-8">
-          <div className={cn(
-            "w-24 h-24 rounded-full flex items-center justify-center shadow-lg transition-all duration-500",
-            error ? "bg-red-50 text-red-600 shadow-red-500/10" : "bg-waha-gray-50 text-waha-gold shadow-waha-gold/10"
-          )}>
-            {isProcessing ? <Loader2 className="w-12 h-12 animate-spin" /> : error ? <AlertCircle className="w-12 h-12" /> : <Zap className="w-12 h-12" />}
-          </div>
-
-          <div className="space-y-3">
-            <h2 className="text-3xl font-black text-waha-gray-900">
-              {error ? "فشل في معالجة الطلب" : "المعالجة المركزية (FCMS)"}
-            </h2>
-            <p className="text-waha-gray-500 font-bold max-w-md mx-auto">
-              {error 
-                ? `خطأ من النظام المركزي: ${error.error}`
-                : "سيتم إرسال بيانات العد والأرقام التسلسلية إلى مصرف ليبيا المركزي لتأكيد العملية."}
-            </p>
-            {error?.errorCode && (
-               <div className="mt-4 px-4 py-2 bg-red-50 text-red-700 rounded-xl inline-block text-xs font-black border border-red-100">
-                  كود الخطأ: {error.errorCode}
-               </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            {!error ? (
-              <Button 
-                onClick={handleProcess}
-                disabled={isProcessing}
-                className="h-16 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl gap-3 text-lg"
-              >
-                {isProcessing ? "جاري المعالجة..." : "إرسال البيانات الآن"}
-                {!isProcessing && <ChevronLeft className="w-5 h-5" />}
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleProcess}
-                className="h-16 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl gap-3 text-lg"
-              >
-                إعادة المحاولة
-              </Button>
-            )}
-            
-            {error && (
-              <p className="text-[10px] text-waha-gray-400 font-bold">
-                في حالة استمرار المشكلة، يرجى التواصل مع الدعم الفني
-              </p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function Step7Finish({ customer, operation, onFinish, isLoading }: any) {
   return (
@@ -1466,6 +1369,16 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
                     </Button>
                   </div>
                </div>
+
+               <div className="mt-8">
+                  <Button 
+                    variant="ghost" 
+                    onClick={onNext}
+                    className="text-waha-gray-400 hover:text-waha-gray-900 font-bold text-xs gap-2"
+                  >
+                     تجاوز وإضافة اللاحقاً <ArrowLeft className="w-3 h-3" />
+                  </Button>
+               </div>
             </div>
           ) : (
             <div className="flex-1 flex gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1564,13 +1477,22 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
                      </Button>
                      
                      {!isVerified ? (
-                       <Button 
-                         onClick={() => onVerify(scannedDoc, { ...extractionResult, source: fileMetadata?.source })}
-                         disabled={!scannedDoc || isExtracting || !!extractionError}
-                         className="w-full h-14 bg-waha-gold hover:bg-waha-gold/90 text-waha-gray-900 font-black rounded-2xl shadow-lg shadow-waha-gold/20 disabled:opacity-50"
-                       >
-                         تأكيد الوثيقة والمتابعة
-                       </Button>
+                        <>
+                          <Button 
+                            onClick={() => onVerify(scannedDoc, { ...extractionResult, source: fileMetadata?.source })}
+                            disabled={!scannedDoc || isExtracting || !!extractionError}
+                            className="w-full h-14 bg-waha-gold hover:bg-waha-gold/90 text-waha-gray-900 font-black rounded-2xl shadow-lg shadow-waha-gold/20 disabled:opacity-50"
+                          >
+                            تأكيد الوثيقة والمتابعة
+                          </Button>
+                          <Button 
+                            variant="ghost"
+                            onClick={onNext}
+                            className="w-full text-waha-gray-400 hover:text-waha-gray-900 font-bold text-xs"
+                          >
+                            تجاوز وإضافة اللاحقاً
+                          </Button>
+                        </>
                      ) : (
                        <Button 
                          onClick={onNext}
@@ -2225,33 +2147,11 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
           </div>
 
           <div className="w-64 flex flex-col">
-             <div className="bg-waha-gray-50 rounded-2xl p-6 flex-1 border border-waha-gray-100">
-                <h4 className="text-xs font-black text-waha-gray-900 mb-6 flex items-center gap-2">
-                   <CheckCircle className="w-4 h-4 text-waha-gold" /> قائمة التوثيق
-                </h4>
-                <div className="space-y-4">
-                   {[
-                     { l: "صورة الوجه", s: mediaRecords.some((m: any) => m.mediaType === 'PHOTO') },
-                     { l: "وثيقة الهوية", s: mediaRecords.some((m: any) => m.mediaType === 'DOCUMENT') },
-                     { l: "فيديو التوثيق", s: videos.length > 0 },
-                   ].map((item, idx) => (
-                     <div key={idx} className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-5 h-5 rounded-lg flex items-center justify-center border transition-all",
-                          item.s ? "bg-emerald-500 border-emerald-400 text-white" : "bg-white border-waha-gray-200 text-transparent"
-                        )}>
-                           <Check className="w-3 h-3" />
-                        </div>
-                        <span className={cn("text-[11px] font-bold", item.s ? "text-waha-gray-900" : "text-waha-gray-400")}>{item.l}</span>
-                     </div>
-                   ))}
-                </div>
-             </div>
              <Button 
                onClick={onNext}
                className="mt-6 h-14 bg-waha-gray-900 hover:bg-black text-white font-black rounded-2xl shadow-xl"
              >
-                حفظ والمتابعة للعدّ
+                حفظ
              </Button>
           </div>
        </CardContent>
@@ -2691,7 +2591,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
              {type === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-waha-gold" />}
              {type === 'VIDEO' && <VideoIcon className="w-3.5 h-3.5 text-waha-gold" />}
              {label}
-             <span className="bg-waha-gray-100 text-waha-gray-500 px-2 py-0.5 rounded-full text-[8px] font-black ml-1">{filtered.length}</span>
+             
           </h4>
        </div>
 
@@ -2719,14 +2619,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                   <Trash2 className="w-3.5 h-3.5" />
                </button>
             </div>
-          )) : (
-            <div className="w-full h-24 bg-waha-gray-50/50 rounded-2xl border-2 border-dashed border-waha-gray-100 flex flex-col items-center justify-center opacity-60">
-               <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center mb-1 shadow-sm">
-                  <CloudUpload className="w-4 h-4 text-waha-gray-300" />
-               </div>
-               <span className="text-[9px] font-black text-waha-gray-400">لا يوجد وسائط</span>
-            </div>
-          )}
+          ) : null}
        </div>
     </div>
   );

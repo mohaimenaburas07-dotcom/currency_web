@@ -5,7 +5,7 @@ import { processPurchaseRequest } from "@/lib/fxApiClient"
 import { writeAuditLog, extractRequestMeta } from "@/lib/auditLogger"
 import { toErrorResponse } from "@/lib/workflowErrors"
 
-export async function POST(
+export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {

@@ -110,7 +110,7 @@ export async function processPurchaseRequest(
     const res = await fetch(
       `${processUrl}/${uuid}/process`,
       { 
-        method: "POST",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${serviceToken}`
