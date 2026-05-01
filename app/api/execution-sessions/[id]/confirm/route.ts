@@ -63,7 +63,6 @@ export async function POST(
       if (!hasCash) throw new ValidationError("لم يتم إدخال بيانات العدّ النقدي")
       if (!cashMatched) throw new ValidationError("المبلغ المعدود لا يطابق المبلغ المطلوب")
       if (!hasReceipt) throw new ValidationError("لم يتم إنشاء الإيصال")
-      if (!hasProcessSnapshot) throw new ValidationError("لم يتم معالجة الطلب في النظام المركزي (FCMS) — يرجى إتمام الخطوة 4")
 
       // 1c. Fetch CBS data (with fallback to snapshot if CBS unreachable)
       const snapshot = session.requestSnapshot as any
