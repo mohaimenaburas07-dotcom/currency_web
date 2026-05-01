@@ -330,7 +330,10 @@ export function ExecuteOperation() {
         // Upload the scanned document first
         const formData = new FormData();
         const blob = await (await fetch(docData)).blob();
-        formData.append("file", new File([blob], "scanned_id.jpg", { type: "image/jpeg" }));
+        const isPdf = blob.type === "application/pdf" || docData.startsWith("data:application/pdf");
+        const ext = isPdf ? "pdf" : "jpg";
+        const mimeType = isPdf ? "application/pdf" : "image/jpeg";
+        formData.append("file", new File([blob], `scanned_id.${ext}`, { type: mimeType }));
         formData.append("userId", "current-user");
         
         const source = sourceMetadata['SCANNER'] || metadata?.source || 'manual'
@@ -368,7 +371,7 @@ export function ExecuteOperation() {
 
       toast.success("تم التحقق من الهوية بنجاح")
       await loadData()
-      goToStep(3)
+      goToStep(6)
     } catch (err: any) {
       console.error(err)
       toast.error("فشل التحقق من الهوية")
@@ -2638,10 +2641,16 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                        <VideoIcon className="w-8 h-8 text-white/80" />
                        <div className="absolute bottom-2 right-2 bg-black/60 text-[8px] font-black text-white px-1.5 py-0.5 rounded-md">MP4</div>
                     </div>
+                  ) : getMediaUrl(item).toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center relative bg-red-50 text-red-500">
+                       <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors" />
+                       <FileText className="w-8 h-8" />
+                       <div className="absolute bottom-2 right-2 bg-red-500 text-[8px] font-black text-white px-1.5 py-0.5 rounded-md">PDF</div>
+                    </div>
                   ) : (
                     <img 
                       src={getMediaUrl(item)} 
-                      alt="Thumb" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      alt="Document" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                     />
                   )}
                </div>

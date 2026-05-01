@@ -63,8 +63,8 @@ export default function CustomersPage() {
   }, [fetchCustomers])
 
   const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.nationalId.includes(searchQuery)
+    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.nationalId || "").includes(searchQuery)
   )
 
   const openReservation = (customer: any) => {

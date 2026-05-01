@@ -221,13 +221,48 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-waha-gray-50">
                            <div className="text-right">
                               <p className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest mb-1">المبلغ المطلوب صرفه</p>
-                              <p className="text-2xl font-black text-waha-gray-900">{res.amountRequested.toLocaleString()} <span className="text-waha-gold">{res.currencyCode}</span></p>
+                              <p className="text-2xl font-black text-waha-gray-900">{res.amountRequested?.toLocaleString() || "0"} <span className="text-waha-gold">{res.currencyCode}</span></p>
                            </div>
                            <div className="text-right">
                               <p className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest mb-1">المعادل بالدينار</p>
-                              <p className="text-lg font-black text-waha-gray-700">{res.equivalentLyd?.toLocaleString()} <span className="text-waha-gray-400">د.ل</span></p>
+                              <p className="text-lg font-black text-waha-gray-700">{res.equivalentLyd?.toLocaleString() || "0"} <span className="text-waha-gray-400">د.ل</span></p>
                            </div>
                         </div>
+
+                        {res.snapshot && (
+                          <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-4 border-t border-waha-gray-50 text-right">
+                            {res.snapshot.reference && (
+                              <div>
+                                <p className="text-[9px] font-bold text-waha-gray-400 uppercase">المرجع</p>
+                                <p className="text-xs font-mono font-bold text-waha-gray-900">{res.snapshot.reference}</p>
+                              </div>
+                            )}
+                            {res.snapshot.bankAccount?.iban && (
+                              <div>
+                                <p className="text-[9px] font-bold text-waha-gray-400 uppercase">رقم الحساب (IBAN)</p>
+                                <p className="text-[10px] font-mono font-bold text-waha-gray-900" dir="ltr">{res.snapshot.bankAccount.iban}</p>
+                              </div>
+                            )}
+                            {res.snapshot.company?.name && (
+                              <div>
+                                <p className="text-[9px] font-bold text-waha-gray-400 uppercase">شركة الصرافة</p>
+                                <p className="text-xs font-bold text-waha-gray-900">{res.snapshot.company.name}</p>
+                              </div>
+                            )}
+                            {res.snapshot.deposit_type?.name && (
+                              <div>
+                                <p className="text-[9px] font-bold text-waha-gray-400 uppercase">نوع الطلب / الدفع</p>
+                                <p className="text-xs font-bold text-waha-gray-900">{res.snapshot.type?.name || "نقدي"} - {res.snapshot.deposit_type.name}</p>
+                              </div>
+                            )}
+                            {res.serialNumber && (
+                              <div className="col-span-2 bg-waha-gray-50 p-2 rounded-lg border border-waha-gray-100">
+                                <p className="text-[9px] font-bold text-waha-gray-400 uppercase mb-1">الأرقام التسلسلية</p>
+                                <p className="text-[10px] font-mono font-bold text-waha-gray-900 leading-tight truncate">{res.serialNumber}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between pt-4 border-t border-waha-gray-50">
                            <p className="text-[10px] font-bold text-waha-gray-400">{formatDate(res.createdAt)}</p>
@@ -283,14 +318,20 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                           <div className="grid grid-cols-3 gap-3">
                             {res.media.map((m: any) => {
                               const mediaUrl = `${getMediaUrl(m)}?t=${Date.now()}`
+                              const isPdf = mediaUrl.toLowerCase().includes('.pdf');
                               return (
                                 <div key={m.id} className="group relative aspect-square rounded-xl overflow-hidden border border-waha-gray-100 bg-waha-gray-50 shadow-sm hover:shadow-md transition-all">
-                                  {m.type === "PHOTO" || m.type === "DOCUMENT" ? (
-                                    <img src={mediaUrl} alt="Capture" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                  ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center text-waha-gray-400 bg-waha-gray-100 gap-2">
-                                      <video src={mediaUrl} className="w-full h-full object-cover" muted />
+                                  {m.type === "VIDEO" ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-waha-gray-400 bg-black gap-2">
+                                      <video src={mediaUrl} className="w-full h-full object-cover opacity-80" muted />
                                     </div>
+                                  ) : isPdf ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center relative bg-red-50 text-red-500">
+                                       <FileText className="w-8 h-8" />
+                                       <div className="absolute bottom-2 right-2 bg-red-500 text-[8px] font-black text-white px-1.5 py-0.5 rounded-md">PDF</div>
+                                    </div>
+                                  ) : (
+                                    <img src={mediaUrl} alt="Capture" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                   )}
                                   <div className="absolute inset-0 bg-waha-gray-900/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
                                     <Button size="icon" variant="outline" className="h-8 w-8 rounded-full border-waha-gold text-waha-gold bg-transparent hover:bg-waha-gold hover:text-waha-gray-900 transition-all" asChild>

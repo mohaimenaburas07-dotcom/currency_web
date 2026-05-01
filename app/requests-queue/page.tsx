@@ -180,7 +180,7 @@ export default function RequestsQueuePage() {
                               <span className="text-sm font-black text-waha-gray-900 leading-tight">
                                 {req.bankAccount?.user?.full_name_en || 
                                  (req.bankAccount?.user?.first_name ? 
-                                   `${req.bankAccount.user.first_name} ${req.bankAccount.user.father_name || ""} ${req.bankAccount.user.last_name || ""}`.trim() : 
+                                   `${req.bankAccount.user.first_name} ${req.bankAccount.user.father_name || ""} ${req.bankAccount.user.grandfather_name || ""} ${req.bankAccount.user.last_name || ""}`.trim() : 
                                    req.user_name || "بدون اسم")
                                 }
                               </span>
