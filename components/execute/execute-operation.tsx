@@ -772,7 +772,10 @@ export function ExecuteOperation() {
   }
 
   const amountNum = parseFloat(request?.amount_requested || "0")
-  const rateRaw = request?.contract?.bank_transfer_price || request?.rate || request?.exchange_rate || 0
+  let rateRaw = request?.contract?.bank_transfer_price || request?.exchange_rate || request?.rate || 0
+  if (typeof rateRaw === 'object' && rateRaw !== null) {
+    rateRaw = rateRaw.rate || 0
+  }
   const rate = typeof rateRaw === 'string' ? parseFloat(rateRaw) : Number(rateRaw)
   const totalLYD = amountNum * rate
 
@@ -2326,7 +2329,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead
                      onClick={onNext}
                      className="w-full h-14 bg-waha-gold hover:bg-waha-gold/90 text-waha-gray-900 font-black rounded-2xl shadow-lg mt-8"
                    >
-                      المتابعة لتأكيد التنفيذ
+                      متابعة
                    </Button>
                 </div>
              </div>

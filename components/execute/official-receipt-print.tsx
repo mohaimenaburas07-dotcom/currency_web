@@ -34,12 +34,15 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   const nationalId = cbsData?.nationalId || req.customer?.nationalId || req.customerNationalId || ""
   const passport = cbsData?.passportNo || req.customer?.passportNumber || ""
   const phone = cbsData?.phoneNumber || req.customer?.phone || ""
-  const iban = req.customer?.iban || req.accountNumber || cbsData?.iban || cbsData?.accountNumber || ""
+  const iban = req.bankAccount?.iban || req.customer?.iban || req.accountNumber || cbsData?.iban || cbsData?.accountNumber || ""
   
   const currency = req.contract?.currency_code || "USD"
   const reqAmount = Number(req.amount_requested || session.cashCountResult?.totalCountedAmount || 0)
   const amount = reqAmount.toLocaleString()
-  const rate = Number(req.contract?.bank_transfer_price || req.bank_transfer_price || req.rate || req.exchangeRate || session.transactionRecord?.exchangeRate || 0)
+  
+  // exchange_rate may be a nested object { date, rate } or a plain number
+  const rawRate = req.contract?.bank_transfer_price || req.exchange_rate || req.rate || req.exchangeRate || session.transactionRecord?.exchangeRate || 0
+  const rate = typeof rawRate === 'object' && rawRate !== null ? Number(rawRate.rate || 0) : Number(rawRate)
   const totalLYD = (reqAmount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const amountWords = convertAmountToWords(reqAmount, currency)
   const fcmsRef = req.fcms_reference || session.id

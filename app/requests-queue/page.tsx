@@ -178,10 +178,9 @@ export default function RequestsQueuePage() {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-black text-waha-gray-900 leading-tight">
-                                {req.bankAccount?.user?.full_name_en || 
-                                 (req.bankAccount?.user?.first_name ? 
+                                {req.bankAccount?.user?.first_name ? 
                                    `${req.bankAccount.user.first_name} ${req.bankAccount.user.father_name || ""} ${req.bankAccount.user.grandfather_name || ""} ${req.bankAccount.user.last_name || ""}`.trim() : 
-                                   req.user_name || "بدون اسم")
+                                   (req.bankAccount?.user?.full_name_en || req.user_name || "بدون اسم")
                                 }
                               </span>
                               <span className="text-[10px] font-bold text-waha-gray-400">
@@ -330,6 +329,15 @@ export default function RequestsQueuePage() {
                        <UserIcon className="w-3.5 h-3.5" /> معلومات العميل
                     </h4>
                     <div className="grid grid-cols-2 gap-6">
+                       <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">الاسم الكامل (AR)</span>
+                          <p className="text-sm font-bold text-waha-gray-900">
+                             {selectedRequest.bankAccount?.user?.first_name ? 
+                               `${selectedRequest.bankAccount.user.first_name} ${selectedRequest.bankAccount.user.father_name || ""} ${selectedRequest.bankAccount.user.grandfather_name || ""} ${selectedRequest.bankAccount.user.last_name || ""}`.trim() : 
+                               (selectedRequest.user_name || "—")
+                             }
+                          </p>
+                       </div>
                        <div className="space-y-1">
                           <span className="text-[9px] font-black text-waha-gray-400 uppercase">الاسم الكامل (EN)</span>
                           <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.bankAccount?.user?.full_name_en || "—"}</p>

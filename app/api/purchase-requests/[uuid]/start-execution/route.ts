@@ -26,40 +26,12 @@ export async function POST(
     })
 
     if (existing) {
-      if (existing.status === "CANCELLED" || existing.status === "COMPLETED") {
-        // Reset to DRAFT so user can re-execute
-        await prisma.$transaction([
-          // Clean up related records that have unique constraints on purchaseRequestUuid
-          prisma.receivedCustomerRecord.deleteMany({ where: { purchaseRequestUuid: uuid } }),
-          prisma.transactionRecord.deleteMany({ where: { purchaseRequestUuid: uuid } }),
-          // Reset the session
-          prisma.executionSession.update({
-            where: { id: existing.id },
-            data: {
-              status: "DRAFT",
-              verificationStatus: "PENDING",
-              cameraStatus: "PENDING",
-              countingStatus: "PENDING",
-              receiptStatus: "PENDING",
-              serialNumber: null,
-              endedAt: null,
-            }
-          })
-        ])
-      } else {
-        return NextResponse.json({ 
-          success: true, 
-          message: "Session already exists", 
-          sessionId: existing.id,
-          id: existing.id // fallback
-        }, { status: 200 }) // Return 200 to avoid red console errors
-      }
-      
       return NextResponse.json(
         {
           sessionId: existing.id,
           purchaseRequestUuid: uuid,
-          status: "DRAFT",
+          status: existing.status,
+          message: "Session already exists"
         },
         { status: 200 }
       )

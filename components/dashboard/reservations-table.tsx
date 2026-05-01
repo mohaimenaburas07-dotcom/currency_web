@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Filter, Loader2, CalendarIcon, ChevronRight, ChevronLeft, CheckCircle2, Clock, XCircle, FileText } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Filter, Loader2, ChevronRight, ChevronLeft, CheckCircle2, Clock, XCircle, FileText, User as UserIcon, Globe, Building2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -38,6 +39,7 @@ export function ReservationsTable() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<any>(null)
+  const [selectedRequest, setSelectedRequest] = useState<any>(null)
 
   // Filters State
   const [filters, setFilters] = useState({
@@ -261,8 +263,12 @@ export function ReservationsTable() {
                 <TableBody>
                   {data.map((req, index) => {
                     const u = req?.bankAccount?.user || {};
-                    const customerName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || req.user_name || "بدون اسم";
-                    const accountNumber = req?.bankAccount?.account_number || "—";
+                    const customerName = u.first_name
+                      ? `${u.first_name} ${u.father_name || ""} ${u.grandfather_name || ""} ${u.last_name || ""}`.trim()
+                      : (u.full_name_en || req.user_name || "بدون اسم");
+                    const accountNumber = req?.bankAccount?.account_number || req?.bankAccount?.iban?.slice(-8) || "—";
+                    const rateRaw = req.contract?.bank_transfer_price || req.exchange_rate || 0
+                    const rate = typeof rateRaw === 'object' && rateRaw !== null ? Number(rateRaw.rate || 0) : Number(rateRaw)
                     const currencyCode = req.contract?.currency_code || "USD";
                     const stateStr = typeof req.state === "object" ? req.state?.code || "pending" : (req.state || "pending");
                     const mappedState = statusConfig[stateStr.toLowerCase()] || statusConfig.fallback;
@@ -297,7 +303,7 @@ export function ReservationsTable() {
                         </TableCell>
                         <TableCell className="py-2">
                           <span className="text-xs font-extrabold text-emerald-600">
-                            {(parseInt(req.amount_requested || "0") * (req.contract?.bank_transfer_price || 4.85)).toLocaleString()} د.ل
+                            {(parseInt(req.amount_requested || "0") * rate).toLocaleString()} د.ل
                           </span>
                         </TableCell>
                         <TableCell className="py-2">
@@ -322,8 +328,8 @@ export function ReservationsTable() {
                                 </Button>
                               </>
                             )}
-                            <Button size="sm" variant="ghost" className="h-7 px-3 rounded-lg text-waha-gray-400 hover:text-waha-gray-900 font-bold text-[10px]" asChild>
-                              <Link href={`/execute?id=${req.uuid}`}>تفاصيل</Link>
+                            <Button size="sm" variant="ghost" className="h-7 px-3 rounded-lg text-waha-gray-400 hover:text-waha-gray-900 font-bold text-[10px]" onClick={() => setSelectedRequest(req)}>
+                              تفاصيل
                             </Button>
                           </div>
                         </TableCell>
@@ -367,6 +373,121 @@ export function ReservationsTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Details Modal */}
+      <Dialog open={!!selectedRequest} onOpenChange={(o) => !o && setSelectedRequest(null)}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto" dir="rtl">
+          <DialogHeader className="bg-waha-gray-900 text-white p-6 rounded-t-xl -mx-6 -mt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl font-black">
+                  تفاصيل طلب الشراء
+                </DialogTitle>
+                {selectedRequest && (
+                  <p className="text-waha-gold font-mono text-sm mt-1">{selectedRequest.reference}</p>
+                )}
+              </div>
+              {selectedRequest && (
+                <Badge className={`${ (statusConfig[typeof selectedRequest.state === 'object' ? selectedRequest.state?.code : selectedRequest.state]?.color || statusConfig.fallback.color) } font-bold text-xs`}>
+                  {statusConfig[typeof selectedRequest.state === 'object' ? selectedRequest.state?.code : selectedRequest.state]?.label || "—"}
+                </Badge>
+              )}
+            </div>
+          </DialogHeader>
+
+          {selectedRequest && (() => {
+            const u = selectedRequest.bankAccount?.user || {}
+            const arName = u.first_name
+              ? `${u.first_name} ${u.father_name || ""} ${u.grandfather_name || ""} ${u.last_name || ""}`.trim()
+              : "—"
+            const rateRaw = selectedRequest.contract?.bank_transfer_price || selectedRequest.exchange_rate || 0
+            const rate = typeof rateRaw === 'object' && rateRaw !== null ? Number(rateRaw.rate || 0) : Number(rateRaw)
+            const amount = parseInt(selectedRequest.amount_requested || "0")
+            const lyd = (amount * rate).toLocaleString()
+            const currency = selectedRequest.contract?.currency_code || "USD"
+
+            return (
+              <div className="space-y-5 pt-4">
+                {/* Customer Info */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-100 pb-2 flex items-center gap-2">
+                    <UserIcon className="w-3.5 h-3.5" /> معلومات العميل
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">الاسم الكامل (AR)</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{arName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">الاسم الكامل (EN)</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{u.full_name_en || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">الرقم الوطني</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{u.nid || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">رقم جواز السفر</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{u.passport_number || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">رقم الهاتف</span>
+                      <p className="text-sm font-bold text-waha-gray-900" dir="ltr">{u.phone || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Info */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-100 pb-2 flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5" /> بيانات الحساب والجمعة
+                  </h4>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-waha-gray-400 uppercase">IBAN</span>
+                    <p className="text-sm font-mono font-bold text-waha-gray-900" dir="ltr">{selectedRequest.bankAccount?.iban || "—"}</p>
+                  </div>
+                </div>
+
+                {/* Transaction Info */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-100 pb-2 flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5" /> تفاصيل المعاملة
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">اسم الشركة</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.company?.[0]?.name || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">CBS TIMESTAMP</span>
+                      <p className="text-sm font-mono font-bold text-waha-gray-900" dir="ltr">{selectedRequest.timestamp || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">تاريخ الطلب</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleDateString('ar-LY') : "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">نوع الإيداع</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.deposit_type?.name || selectedRequest.type?.name || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="bg-waha-gray-900 rounded-2xl p-4 grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <p className="text-[9px] font-bold text-white/40 uppercase mb-1">المبلغ المطلوب</p>
+                      <p className="text-2xl font-black text-waha-gold">{amount.toLocaleString()} <span className="text-sm">{currency}</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-white/40 uppercase mb-1">المعادل بالدينار</p>
+                      <p className="text-lg font-black text-white">{lyd} <span className="text-sm text-white/60">د.ل</span></p>
+                      <p className="text-[9px] text-white/40 mt-1">سعر الصرف: {rate || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
