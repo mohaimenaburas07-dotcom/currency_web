@@ -98,7 +98,9 @@ export async function GET(
           currencyCode: sSnap?.currency?.name || sSnap?.bankAccount?.currency?.code || "USD",
           equivalentLyd: amount * rate,
           status: s.status.toLowerCase(),
-          serialNumber: s.serialNumber || s.cashCountResult?.serialNumber,
+          serialNumber: s.cashCountResult?.usdSerialNumbers?.length > 0
+              ? (s.cashCountResult.usdSerialNumbers as string[]).join(", ")
+              : (s.serialNumber && s.serialNumber !== "SYSTEM_PROCESSED" ? s.serialNumber : null),
           createdAt: s.createdAt,
           snapshot: sSnap,
           media: s.mediaRecords.map(m => ({

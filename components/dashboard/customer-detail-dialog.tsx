@@ -35,6 +35,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { cn, getMediaUrl } from "@/lib/utils"
+import { useRole } from "@/lib/useRole"
 import Link from "next/link"
 
 interface CustomerDetailDialogProps {
@@ -45,8 +46,9 @@ interface CustomerDetailDialogProps {
 
 export function CustomerDetailDialog({ customerId, open, onOpenChange }: CustomerDetailDialogProps) {
   const [customer, setCustomer] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const { isAdmin } = useRole()
 
   useEffect(() => {
     if (customerId && open) {
@@ -224,9 +226,15 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                               <p className="text-2xl font-black text-waha-gray-900">{res.amountRequested?.toLocaleString() || "0"} <span className="text-waha-gold">{res.currencyCode}</span></p>
                            </div>
                            <div className="text-right">
-                              <p className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest mb-1">المعادل بالدينار</p>
-                              <p className="text-lg font-black text-waha-gray-700">{res.equivalentLyd?.toLocaleString() || "0"} <span className="text-waha-gray-400">د.ل</span></p>
-                           </div>
+                               <p className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest mb-1">المعادل بالدينار</p>
+                               {(() => {
+                                 const amt = Number(res.amountRequested || 0)
+                                 const rawRate = res.snapshot?.exchange_rate || res.snapshot?.contract?.bank_transfer_price || 0
+                                 const rate = typeof rawRate === 'object' && rawRate !== null ? Number(rawRate.rate || 0) : Number(rawRate)
+                                 const lyd = res.equivalentLyd || (rate > 0 ? (amt * rate) : 0)
+                                 return <p className="text-lg font-black text-waha-gray-700">{lyd > 0 ? lyd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "—"} <span className="text-waha-gray-400">د.ل</span></p>
+                               })()}
+                            </div>
                         </div>
 
                         {res.snapshot && (
@@ -255,23 +263,17 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                                 <p className="text-xs font-bold text-waha-gray-900">{res.snapshot.type?.name || "نقدي"} - {res.snapshot.deposit_type.name}</p>
                               </div>
                             )}
-                            {res.serialNumber && (
+                            {res.serialNumber && !res.serialNumber.includes('SYSTEM_PROCESSED') && (
                               <div className="col-span-2 bg-waha-gray-50 p-2 rounded-lg border border-waha-gray-100">
                                 <p className="text-[9px] font-bold text-waha-gray-400 uppercase mb-1">الأرقام التسلسلية</p>
-                                <p className="text-[10px] font-mono font-bold text-waha-gray-900 leading-tight truncate">{res.serialNumber}</p>
+                                <p className="text-[10px] font-mono font-bold text-waha-gray-900 leading-tight">{res.serialNumber}</p>
                               </div>
                             )}
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-4 border-t border-waha-gray-50">
+                        <div className="pt-4 border-t border-waha-gray-50">
                            <p className="text-[10px] font-bold text-waha-gray-400">{formatDate(res.createdAt)}</p>
-                           <Button variant="ghost" className="h-8 text-[10px] font-black text-waha-gold gap-1.5 hover:bg-waha-gold/5" asChild>
-                              <Link href={`/execute?id=${res.uuid}&step=6`}>
-                                 <DollarSign className="w-3 h-3" />
-                                 عرض تفاصيل الإيصال
-                              </Link>
-                           </Button>
                         </div>
                       </Card>
                     ))
@@ -339,6 +341,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                                         <Maximize2 className="h-4 w-4" />
                                       </a>
                                     </Button>
+                                  {isAdmin && (
                                   <Button 
                                     size="icon" 
                                     variant="destructive" 
@@ -347,6 +350,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
+                                  )}
                                 </div>
                               </div>
                             )

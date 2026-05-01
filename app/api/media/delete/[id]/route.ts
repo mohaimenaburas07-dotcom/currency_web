@@ -1,6 +1,7 @@
-/** Force Rebuild 1 **/
+/** Force Rebuild 2 **/
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog, extractRequestMeta } from "@/lib/auditLogger";
 import fs from "fs";
 import path from "path";
 
@@ -14,57 +15,65 @@ export async function DELETE(
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
     const { id } = resolvedParams;
+    const { ipAddress, userAgent } = extractRequestMeta(req)
 
-    console.log(`[MEDIA_DELETE] >>> STARTING DELETION FOR ID: ${id}`);
+    // Read role from request header (set by client from localStorage)
+    const userRaw = req.headers.get("x-user-role") ?? ""
+    const isAdmin = ["ADMIN", "admin", "ROLE_ADMIN", "Administrator"].some(r => userRaw.includes(r))
+
+    console.log(`[MEDIA_DELETE] >>> STARTING DELETION FOR ID: ${id} | role=${userRaw}`);
 
     if (!id) {
-      console.error(`[MEDIA_DELETE] ERROR: No ID provided`);
-      return NextResponse.json({ error: "Missing media ID" }, { status: 400 });
+      return NextResponse.json({ error: "Missing media ID", message: "يرجى تحديد الملف المراد حذفه" }, { status: 400 });
+    }
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Unauthorized", message: "غير مسموح — هذه العملية متاحة للمدير فقط" }, { status: 403 });
     }
 
     // 1. Fetch record
-    console.log(`[MEDIA_DELETE] STEP 1: Fetching record from DB...`);
-    const media = await prisma.mediaRecord.findUnique({
-      where: { id }
-    });
+    const media = await prisma.mediaRecord.findUnique({ where: { id } });
 
     if (!media) {
-      console.warn(`[MEDIA_DELETE] Record not found in database: ${id}`);
-      return NextResponse.json({ error: "Media record not found" }, { status: 404 });
+      return NextResponse.json({ error: "Media record not found", message: "لم يتم العثور على الملف" }, { status: 404 });
     }
 
     // 2. Attempt to delete the physical file
     try {
-      // Normalize path for Windows/Linux compatibility
-      // Ensure we remove leading slashes to prevent path.join from treating it as root
       const relativePath = media.filePath.replace(/^\//, '').replace(/\\/g, path.sep).replace(/\//g, path.sep);
       const absolutePath = path.join(UPLOADS_ROOT, relativePath);
-
-      console.log(`[MEDIA_DELETE] Target file: ${absolutePath}`);
-
       if (fs.existsSync(absolutePath)) {
         fs.unlinkSync(absolutePath);
         console.log(`[MEDIA_DELETE] Physical file deleted: ${relativePath}`);
-      } else {
-        console.warn(`[MEDIA_DELETE] Physical file already missing from disk: ${absolutePath}`);
       }
     } catch (fsError: any) {
-      // Log FS error but don't stop the DB deletion
       console.error(`[MEDIA_DELETE] Filesystem error: ${fsError.message}`);
     }
 
-    // 3. Delete the record from the database
-    await prisma.mediaRecord.delete({
-      where: { id }
-    });
+    // 3. Delete from database
+    await prisma.mediaRecord.delete({ where: { id } });
+
+    // 4. Write audit log
+    await writeAuditLog({
+      action: "DOCUMENT_UPLOADED", // reuse closest action; extend AuditAction if needed
+      entityType: "MediaRecord",
+      entityId: id,
+      sessionId: media.sessionId,
+      performedByUserId: req.headers.get("x-user-id") ?? "unknown",
+      oldValues: { filePath: media.filePath, mediaType: media.mediaType },
+      newValues: { deleted: true },
+      ipAddress,
+      userAgent,
+    })
 
     console.log(`[MEDIA_DELETE] Database record deleted successfully: ${id}`);
-    return NextResponse.json({ success: true, message: "Media deleted successfully" });
+    return NextResponse.json({ success: true, message: "تم حذف الملف بنجاح" });
 
   } catch (error: any) {
     console.error("[MEDIA_DELETE_CRITICAL_ERROR]", error);
     return NextResponse.json({ 
       error: "Internal Server Error", 
+      message: "حدث خطأ داخلي أثناء الحذف",
       details: error.message 
     }, { status: 500 });
   }

@@ -100,9 +100,9 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           
           <div className="w-24 px-2 flex items-center text-gray-600 border-r border-gray-400">IBAN Number</div>
           <div className="flex-1 flex items-center justify-center px-1">
-            {/* 24 boxes for IBAN */}
-            <div className="flex gap-[1px]">
-              {Array.from({ length: 24 }).map((_, i) => (
+            {/* IBAN characters left-to-right */}
+            <div className="flex gap-[1px]" dir="ltr">
+              {Array.from({ length: Math.max(iban.length, 24) }).map((_, i) => (
                 <div key={i} className="w-3.5 h-5 border border-gray-400 flex items-center justify-center text-[9px] font-mono">
                   {iban[i] || ""}
                 </div>
