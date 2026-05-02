@@ -96,19 +96,23 @@ export function ExecuteOperation() {
     const checkHardware = async () => {
       try {
         // Resolve branchId: Current user's branch has highest priority for hardware context
-        let branchId = HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
+        // Priority 1: Request branch (where the transaction belongs)
+        let branchId = request?.branch_id;
         
-        const userStr = localStorage.getItem("alwaha_user");
-        if (userStr) {
-          try {
-            const user = JSON.parse(userStr);
-            if (user.branch_code) branchId = user.branch_code;
-          } catch (e) {}
+        // Priority 2: Logged-in user's assigned branch
+        if (!branchId) {
+          const userStr = localStorage.getItem("alwaha_user");
+          if (userStr) {
+            try {
+              const user = JSON.parse(userStr);
+              if (user.branch_code) branchId = user.branch_code;
+            } catch (e) {}
+          }
         }
         
-        // If user branch not found, fallback to request branch
-        if (branchId === HARDWARE_CONFIG.DEFAULT_BRANCH_ID && request?.branch_id) {
-          branchId = request.branch_id;
+        // Priority 3: System default
+        if (!branchId) {
+          branchId = HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
         }
 
         const token = localStorage.getItem("alwaha_auth_token");
@@ -431,7 +435,8 @@ export function ExecuteOperation() {
     const deviceId = typeof deviceIdArg === 'string' ? deviceIdArg : undefined
     try {
       toast.info("جاري التقاط صورة عبر الكاميرا...")
-      const res = await fetch('/api/hardware/camera/snapshot', {
+      const snapshotBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
+      const res = await fetch(`/api/hardware/camera/snapshot?branchId=${snapshotBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -615,7 +620,8 @@ export function ExecuteOperation() {
     if (!session?.id) return
     try {
       toast.info(`جاري طباعة ${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}...`)
-      const res = await fetch('/api/hardware/printer/print', {
+      const printBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
+      const res = await fetch(`/api/hardware/printer/print?branchId=${printBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1852,8 +1858,14 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   }
 
   const startRecording = () => {
-    if (!isHardwareEnabled && cameraState !== 'ready') return
-    if (isHardwareEnabled && !isCameraConnected) return
+    if (!isHardwareEnabled && cameraState !== 'ready') {
+      toast.error("يرجى الانتظار حتى تكون الكاميرا جاهزة");
+      return;
+    }
+    if (isHardwareEnabled && !isCameraConnected) {
+      toast.error("الكاميرا غير متصلة. يرجى التحقق من التوصيلات");
+      return;
+    }
     
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
       ? 'video/webm;codecs=vp9'
@@ -1881,12 +1893,12 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
             }
         } else {
             isCanvasRecording = true;
-            if (!canvasRef.current || !hwImgRef.current) {
+            if (!hwImgRef.current) {
               toast.error("حدث خطأ في تجهيز التسجيل من كاميرا الأجهزة");
               return;
             }
 
-            if (!hwImgRef.current.complete || hwImgRef.current.naturalWidth === 0) {
+            if (hwImgRef.current.naturalWidth === 0) {
               toast.error("يرجى الانتظار حتى يتم تحميل الكاميرا بشكل كامل");
               return;
             }
