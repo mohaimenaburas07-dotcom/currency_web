@@ -83,6 +83,12 @@ export function ExecuteOperation() {
   const [hardwareConfigData, setHardwareConfigData] = useState<any>({})
   const hardwareConfig = hardwareConfigData; // Alias to prevent ReferenceErrors in handlers
   const [refreshKey, setRefreshKey] = useState(0)
+  const isAdmin = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("alwaha_user") || "{}")
+      return ["ADMIN", "admin", "ROLE_ADMIN"].some(r => (u.role || "").includes(r))
+    } catch { return false }
+  })()
   const [selectedDevices, setSelectedDevices] = useState<Record<string, string>>({})
   const [sourceMetadata, setSourceMetadata] = useState<Record<string, string>>({})
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null)
@@ -943,6 +949,7 @@ export function ExecuteOperation() {
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, CAMERA: id }))}
               trackSource={trackSource}
               galleryRefreshKey={refreshKey}
+              isAdmin={isAdmin}
             />
           )}
 
@@ -1571,7 +1578,7 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, onSkip, hardwar
   );
 }
 
-function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, hardwareStatus, hardwareConfig, session, onNext, onRefreshSession, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, galleryRefreshKey }: any) {
+function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, hardwareStatus, hardwareConfig, session, onNext, onRefreshSession, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, galleryRefreshKey, isAdmin }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCameraConnected = hardwareStatus?.camera === 'CONNECTED'
   
@@ -2134,47 +2141,9 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
              </div>
 
               <div className="mt-8 space-y-6">
-                  <MediaGallery 
-                    label="صور الوجه" 
-                    type="PHOTO" 
-                    items={mediaRecords} 
-                    onPreview={setPreviewMedia} 
-                    refreshKey={galleryRefreshKey}
-                    onDelete={async (id: string) => {
-                      if (confirm("هل أنت متأكد من حذف هذه الصورة؟")) {
-                        await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
-                        onRefreshSession?.();
-                      }
-                    }} 
-                  />
-                  
-                  <MediaGallery 
-                    label="وثائق الهوية" 
-                    type="DOCUMENT" 
-                    items={mediaRecords} 
-                    onPreview={setPreviewMedia} 
-                    refreshKey={galleryRefreshKey}
-                    onDelete={async (id: string) => {
-                      if (confirm("هل أنت متأكد من حذف هذه الوثيقة؟")) {
-                        await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
-                        onRefreshSession?.();
-                      }
-                    }} 
-                  />
-                  
-                  <MediaGallery 
-                    label="فيديوهات التوثيق" 
-                    type="VIDEO" 
-                    items={mediaRecords} 
-                    onPreview={setPreviewMedia} 
-                    refreshKey={galleryRefreshKey}
-                    onDelete={async (id: string) => {
-                      if (confirm("هل أنت متأكد من حذف هذا الفيديو؟")) {
-                        await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
-                        onRefreshSession?.();
-                      }
-                    }} 
-                  />
+                  <MediaGallery label="صور الوجه"        type="PHOTO"    items={mediaRecords} onPreview={setPreviewMedia} refreshKey={galleryRefreshKey} isAdmin={isAdmin} onDelete={async (id: string) => { if (confirm("هل أنت متأكد من حذف هذه الصورة؟")) { await fetch(`/api/media/delete/${id}`, { method: "DELETE" }); onRefreshSession?.(); } }} />
+                  <MediaGallery label="وثائق الهوية"     type="DOCUMENT" items={mediaRecords} onPreview={setPreviewMedia} refreshKey={galleryRefreshKey} isAdmin={isAdmin} onDelete={async (id: string) => { if (confirm("هل أنت متأكد من حذف هذه الوثيقة؟")) { await fetch(`/api/media/delete/${id}`, { method: "DELETE" }); onRefreshSession?.(); } }} />
+                  <MediaGallery label="فيديوهات التوثيق" type="VIDEO"    items={mediaRecords} onPreview={setPreviewMedia} refreshKey={galleryRefreshKey} isAdmin={isAdmin} onDelete={async (id: string) => { if (confirm("هل أنت متأكد من حذف هذا الفيديو؟"))  { await fetch(`/api/media/delete/${id}`, { method: "DELETE" }); onRefreshSession?.(); } }} />
               </div>
 
               {previewMedia && (
@@ -2656,7 +2625,7 @@ function DenominationChip({
   )
 }
 
-function MediaGallery({ label, type, items, onPreview, onDelete, refreshKey }: { label: string, type: string, items: any[], onPreview: (item: any) => void, onDelete: (id: string) => void, refreshKey?: number }) {
+function MediaGallery({ label, type, items, onPreview, onDelete, refreshKey, isAdmin }: { label: string, type: string, items: any[], onPreview: (item: any) => void, onDelete: (id: string) => void, refreshKey?: number, isAdmin?: boolean }) {
   const filtered = items.filter(m => m.mediaType === type);
   
   return (
@@ -2734,9 +2703,11 @@ function MediaSlot({ label, icon, item, onPreview, onDelete }: any) {
               <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/40" onClick={() => onPreview(item)}>
                 <Eye className="w-4 h-4" />
               </Button>
-              <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full bg-red-500/20 text-white hover:bg-red-500" onClick={() => onDelete(item.id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {isAdmin && (
+                <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full bg-red-500/20 text-white hover:bg-red-500" onClick={() => onDelete(item.id)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </>
         ) : (
