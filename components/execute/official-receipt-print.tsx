@@ -35,11 +35,11 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   const passport = cbsData?.passportNo || req.customer?.passportNumber || ""
   const phone = cbsData?.phoneNumber || req.customer?.phone || ""
   const iban = req.bankAccount?.iban || req.customer?.iban || req.accountNumber || cbsData?.iban || cbsData?.accountNumber || ""
-  
+
   const currency = req.contract?.currency_code || "USD"
   const reqAmount = Number(req.amount_requested || session.cashCountResult?.totalCountedAmount || 0)
   const amount = reqAmount.toLocaleString()
-  
+
   // exchange_rate may be a nested object { date, rate } or a plain number
   const rawRate = req.contract?.bank_transfer_price || req.exchange_rate || req.rate || req.exchangeRate || session.transactionRecord?.exchangeRate || 0
   const rate = typeof rawRate === 'object' && rawRate !== null ? Number(rawRate.rate || 0) : Number(rawRate)
@@ -47,16 +47,16 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   const amountWords = convertAmountToWords(reqAmount, currency)
   const fcmsRef = req.fcms_reference || session.id
   const branchName = cbsData?.branch || req.branch?.name_ar || "المركز الرئيسي"
-  
+
   const serialNumber = session.transactionRecord?.serialNumber || ""
   const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  
+
   const denominations = session.cashCountResult?.denominations || []
   const banknoteSerials = session.cashCountResult?.usdSerialNumbers || []
 
   const renderCopy = (copyType: 'CUSTOMER' | 'ARCHIVE', label: string) => (
     <div className="receipt-copy flex flex-col w-[190mm] mx-auto bg-white" style={{ pageBreakInside: 'avoid' }}>
-      
+
       {/* ── Top Label ── */}
       <div className="text-center font-bold text-[10px] text-gray-500 mb-2 border-b border-dashed border-gray-300 pb-1">
         {label}
@@ -72,7 +72,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="flex items-end mt-2">
             <div className="w-64 border border-gray-400 h-8 flex items-center justify-between px-2 rounded-sm relative">
               <span className="text-xs font-bold w-full text-center">{branchName}</span>
-              <span className="text-[10px] text-gray-500 absolute top-0 right-1 leading-none" dir="rtl">إسم الفرع<br/>Branch Name</span>
+              <span className="text-[10px] text-gray-500 absolute top-0 right-1 leading-none" dir="rtl">إسم الفرع<br />Branch Name</span>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
 
       {/* ── Main Form Table ── */}
       <div className="border border-gray-400 rounded-sm flex flex-col text-[11px] leading-snug">
-        
+
         {/* Row 1: Account Holder */}
         <div className="flex border-b border-gray-400 items-stretch h-8">
           <div className="w-48 px-2 flex items-center text-gray-600 border-r border-gray-400">Account Holder's Name</div>
@@ -97,7 +97,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Currency Withdrawal</div>
           <div className="w-20 px-2 flex items-center font-bold justify-center">{currency}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-x border-gray-400" dir="rtl">عملة السحب</div>
-          
+
           <div className="w-24 px-2 flex items-center text-gray-600 border-r border-gray-400">IBAN Number</div>
           <div className="flex-1 flex items-center justify-center px-1">
             {/* IBAN characters left-to-right */}
@@ -117,7 +117,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Amount in Figures</div>
           <div className="w-32 px-2 flex items-center font-bold text-sm tracking-widest">{amount}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-x border-gray-400" dir="rtl">المبلغ بالأرقام</div>
-          
+
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">FCMS Reference</div>
           <div className="flex-1 px-2 flex items-center font-bold font-mono text-[10px] tracking-wide">{fcmsRef}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">اشاري المعاملة</div>
@@ -128,7 +128,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Equivalent in LYD</div>
           <div className="w-32 px-2 flex items-center font-bold text-sm tracking-widest">{totalLYD}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-x border-gray-400" dir="rtl">المعادل بالدينار</div>
-          
+
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Exchange Rate</div>
           <div className="flex-1 px-2 flex items-center font-bold font-mono tracking-wide">{rate}</div>
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">سعر الصرف</div>
@@ -139,10 +139,10 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
           <div className="w-24 px-2 flex items-center text-gray-600 border-r border-gray-400">ID Number</div>
           <div className="w-32 px-2 flex items-center font-bold tracking-widest">{nationalId}</div>
           <div className="w-20 px-2 flex items-center justify-end text-gray-600 border-x border-gray-400" dir="rtl">الرقم الوطني</div>
-          
+
           <div className="w-16 px-2 flex items-center text-gray-600 border-r border-gray-400">Passport</div>
           <div className="flex-1 px-2 flex items-center font-bold tracking-widest border-r border-gray-400">{passport}</div>
-          
+
           <div className="w-16 px-2 flex items-center text-gray-600 border-r border-gray-400">Phone</div>
           <div className="flex-1 px-2 flex items-center font-bold tracking-widest border-r border-gray-400" dir="ltr">{phone}</div>
         </div>
@@ -166,7 +166,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
             <div className="grid grid-cols-5 gap-y-0.5 gap-x-2 text-[8px] font-mono leading-tight">
               {banknoteSerials.map((sn: string, i: number) => (
                 <div key={i} className="flex justify-between border-b border-gray-100/50">
-                  <span className="opacity-40">{i+1}.</span>
+                  <span className="opacity-40">{i + 1}.</span>
                   <span className="font-bold">{sn}</span>
                 </div>
               ))}
@@ -224,10 +224,10 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
         </div>
         <div className="flex items-stretch h-20">
           <div className="flex-1 border-r border-gray-400 flex flex-col items-center justify-end pb-2 relative">
-            <span className="absolute top-2 right-2 text-gray-500 font-bold" dir="rtl">ختم المصرف<br/>Stamp</span>
+            <span className="absolute top-2 right-2 text-gray-500 font-bold" dir="rtl">ختم المصرف<br />Stamp</span>
           </div>
           <div className="flex-1 flex flex-col items-center justify-end pb-2 relative">
-            <span className="absolute top-2 right-2 text-gray-500 font-bold" dir="rtl">توقيع الصراف<br/>Teller's Signature</span>
+            <span className="absolute top-2 right-2 text-gray-500 font-bold" dir="rtl">توقيع الصراف<br />Teller's Signature</span>
           </div>
         </div>
       </div>
@@ -240,10 +240,10 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
       {/* Container simulating A4 page layout */}
       <div className="print-page print:m-0 print:p-0 flex flex-col gap-16">
         {renderCopy('CUSTOMER', 'نسخة العميل — Customer Copy')}
-        
+
         {/* Scissor cut line */}
         <div className="w-full border-t-2 border-dashed border-gray-300 relative flex items-center justify-center print:border-gray-400 print-exact-border">
-           <span className="bg-white px-2 text-gray-400 text-xs absolute">✂</span>
+          <span className="bg-white px-2 text-gray-400 text-xs absolute">✂</span>
         </div>
 
         {renderCopy('ARCHIVE', 'نسخة الأرشيف — Archive Copy')}

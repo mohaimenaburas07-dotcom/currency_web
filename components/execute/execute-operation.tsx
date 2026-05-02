@@ -82,6 +82,7 @@ export function ExecuteOperation() {
   })
   const [hardwareConfigData, setHardwareConfigData] = useState<any>({})
   const hardwareConfig = hardwareConfigData; // Alias to prevent ReferenceErrors in handlers
+  const [refreshKey, setRefreshKey] = useState(0)
   const [selectedDevices, setSelectedDevices] = useState<Record<string, string>>({})
   const [sourceMetadata, setSourceMetadata] = useState<Record<string, string>>({})
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null)
@@ -502,6 +503,7 @@ export function ExecuteOperation() {
         
         toast.success("تم التقاط الصورة بنجاح")
         await loadData()
+        setGalleryRefreshKey(prev => prev + 1)
       } else {
         throw new Error(result.error?.message || "فشلت عملية الالتقاط")
       }
@@ -947,6 +949,7 @@ export function ExecuteOperation() {
               selectedDeviceId={selectedDevices['CAMERA']}
               onSelectDevice={(id: string) => setSelectedDevices(p => ({ ...p, CAMERA: id }))}
               trackSource={trackSource}
+              galleryRefreshKey={refreshKey}
             />
           )}
 
@@ -1575,7 +1578,7 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, onSkip, hardwar
   );
 }
 
-function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, hardwareStatus, hardwareConfig, session, onNext, onRefreshSession, devicesCollection, selectedDeviceId, onSelectDevice, trackSource }: any) {
+function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, hardwareStatus, hardwareConfig, session, onNext, onRefreshSession, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, galleryRefreshKey }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCameraConnected = hardwareStatus?.camera === 'CONNECTED'
   
@@ -2143,6 +2146,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                     type="PHOTO" 
                     items={mediaRecords} 
                     onPreview={setPreviewMedia} 
+                    refreshKey={galleryRefreshKey}
                     onDelete={async (id: string) => {
                       if (confirm("هل أنت متأكد من حذف هذه الصورة؟")) {
                         await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
@@ -2156,6 +2160,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                     type="DOCUMENT" 
                     items={mediaRecords} 
                     onPreview={setPreviewMedia} 
+                    refreshKey={galleryRefreshKey}
                     onDelete={async (id: string) => {
                       if (confirm("هل أنت متأكد من حذف هذه الوثيقة؟")) {
                         await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
@@ -2169,6 +2174,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                     type="VIDEO" 
                     items={mediaRecords} 
                     onPreview={setPreviewMedia} 
+                    refreshKey={galleryRefreshKey}
                     onDelete={async (id: string) => {
                       if (confirm("هل أنت متأكد من حذف هذا الفيديو؟")) {
                         await fetch(`/api/media/delete/${id}`, { method: "DELETE" });
@@ -2657,7 +2663,7 @@ function DenominationChip({
   )
 }
 
-function MediaGallery({ label, type, items, onPreview, onDelete }: { label: string, type: string, items: any[], onPreview: (item: any) => void, onDelete: (id: string) => void }) {
+function MediaGallery({ label, type, items, onPreview, onDelete, refreshKey }: { label: string, type: string, items: any[], onPreview: (item: any) => void, onDelete: (id: string) => void, refreshKey?: number }) {
   const filtered = items.filter(m => m.mediaType === type);
   
   return (
@@ -2690,7 +2696,7 @@ function MediaGallery({ label, type, items, onPreview, onDelete }: { label: stri
                     </div>
                   ) : (
                     <img 
-                      src={getMediaUrl(item)} 
+                      src={`${getMediaUrl(item)}?v=${refreshKey || 0}`} 
                       alt="Document" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                     />
                   )}
