@@ -96,8 +96,8 @@ export function ExecuteOperation() {
     const checkHardware = async () => {
       try {
         // Resolve branchId: Current user's branch has highest priority for hardware context
-        // Priority 1: Request or Session branch
-        let branchId = request?.branch_id || session?.branchCode || request?.branchCode;
+        // Priority 1: Session or Request branch (transaction context)
+        let branchId = session?.branchCode || request?.branch_id || request?.branchCode;
         
         // Priority 2: Logged-in user's assigned branch
         if (!branchId) {
@@ -453,7 +453,7 @@ export function ExecuteOperation() {
     
     try {
       toast.info("جاري التقاط صورة عبر الكاميرا...")
-      const snapshotBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
+      const snapshotBranchId = session?.branchCode || hardwareConfigData?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
       const res = await fetch(`/api/hardware/camera/snapshot?branchId=${snapshotBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -638,7 +638,7 @@ export function ExecuteOperation() {
     if (!session?.id) return
     try {
       toast.info(`جاري طباعة ${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}...`)
-      const printBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
+      const printBranchId = session?.branchCode || hardwareConfigData?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
       const res = await fetch(`/api/hardware/printer/print?branchId=${printBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
