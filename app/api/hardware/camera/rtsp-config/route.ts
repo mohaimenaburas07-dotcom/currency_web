@@ -117,7 +117,8 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Return safe WHEP URL to frontend ─────────────────────────────────────
-    const whepUrl = `${MEDIAMTX_WHEP_BASE}/${streamName}/whep`;
+    const host = req.headers.get('host')?.split(':')[0] || 'localhost';
+    const whepUrl = `http://${host}:8889/${streamName}/whep`;
     console.log(`[RTSP Config] ✓ WHEP URL: ${whepUrl}`);
 
     return NextResponse.json({
