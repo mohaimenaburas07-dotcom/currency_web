@@ -49,14 +49,15 @@ export async function POST(req: NextRequest) {
   try {
     const branchId = await resolveBranchId(req);
     const body = await req.json();
-    const { transactionId, operatorId } = body;
+    const sessionId = body.sessionId || body.sessionId;
+    const operatorId = body.operatorId || 'SYSTEM';
 
-    if (!branchId || !operatorId || !transactionId) {
-      return NextResponse.json({ success: false, error: 'Missing required context' }, { status: 400 });
+    if (!branchId || !sessionId) {
+      return NextResponse.json({ success: false, error: 'Missing required context (branchId or sessionId)' }, { status: 400 });
     }
 
     // 1. Take the snapshot
-    const result = await cameraService.takeSnapshot({ branchId, transactionId, operatorId });
+    const result = await cameraService.takeSnapshot({ branchId, sessionId, operatorId });
     
     if (!result.success || !result.data?.url) {
       return NextResponse.json(result, { status: 502 });
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Get session info for storage path
     const session = await prisma.executionSession.findUnique({
-      where: { id: transactionId },
+      where: { id: sessionId },
       select: { customerCode: true }
     });
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     const fileName = `hardware_snapshot_${Date.now()}.jpg`;
     const saved = await saveSessionFile(
       buffer,
-      transactionId,
+      sessionId,
       session?.customerCode || 'unknown',
       'photos',
       fileName,
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     // 5. Create MediaRecord
     const record = await prisma.mediaRecord.create({
       data: {
-        sessionId: transactionId,
+        sessionId: sessionId,
         mediaType: 'PHOTO',
         filePath: saved.filePath,
         fileName: saved.fileName,
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
       action: 'PHOTO_UPLOADED',
       entityType: 'MediaRecord',
       entityId: record.id,
-      sessionId: transactionId,
+      sessionId: sessionId,
       performedByUserId: operatorId,
       newValues: { filePath: saved.filePath, source: 'HARDWARE' },
       ipAddress,

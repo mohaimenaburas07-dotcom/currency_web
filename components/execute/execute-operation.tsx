@@ -460,9 +460,9 @@ export function ExecuteOperation() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId: hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
-          operatorId: 'current-user',
-          transactionId: session.id,
+          sessionId: session.id,
+          branchId: snapshotBranchId,
+          operatorId: session.startedByUserId || 'SYSTEM',
           deviceId: deviceId || selectedDevices['CAMERA']
         })
       })
@@ -472,18 +472,11 @@ export function ExecuteOperation() {
       }
       const result = await res.json()
       
-      if (result.success && result.data?.url) {
-        // Fetch the actual image from the returned URL to create a blob
-        let blob;
-        try {
-          const imageRes = await fetch(result.data.url);
-          blob = await imageRes.blob();
-        } catch (e) {
-          console.warn("Could not fetch from camera directly, using fallback blob", e);
-          blob = new Blob(["hardware-capture"], { type: "image/jpeg" });
-        }
-        
-        const file = new File([blob], "hardware_capture.jpg", { type: "image/jpeg" })
+      if (result.success) {
+        toast.success("تم التقاط الصورة بنجاح")
+        await loadData()
+        setGalleryRefreshKey(prev => prev + 1)
+      } else if (false) {
         const formData = new FormData()
         formData.append("file", file)
         formData.append("userId", "current-user")
