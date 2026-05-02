@@ -151,7 +151,7 @@ export function ExecuteOperation() {
     checkHardware()
     const interval = setInterval(checkHardware, 30000) // Check every 30s
     return () => clearInterval(interval)
-  }, [request?.branch_id])
+  }, [request?.branch_id, session?.branchCode, session?.id])
   const [customer, setCustomer] = useState<any>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
