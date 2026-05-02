@@ -96,8 +96,8 @@ export function ExecuteOperation() {
     const checkHardware = async () => {
       try {
         // Resolve branchId: Current user's branch has highest priority for hardware context
-        // Priority 1: Request branch (where the transaction belongs)
-        let branchId = request?.branch_id;
+        // Priority 1: Request or Session branch
+        let branchId = request?.branch_id || session?.branchCode || request?.branchCode;
         
         // Priority 2: Logged-in user's assigned branch
         if (!branchId) {
@@ -116,7 +116,7 @@ export function ExecuteOperation() {
         }
 
         const token = localStorage.getItem("alwaha_auth_token");
-        console.log(`[HardwareStatus] Checking hardware for branch: ${branchId}`);
+        console.log(`[HardwareStatus] Checking hardware for branch: ${branchId} (request=${!!request}, session=${!!session})`);
         
         const res = await fetch(`/api/hardware/status?branchId=${branchId}`, {
           headers: {
@@ -431,9 +431,15 @@ export function ExecuteOperation() {
   }
 
   const handleHardwareCapture = async (deviceIdArg?: any) => {
-    if (!session?.id) return
-    const deviceId = typeof deviceIdArg === 'string' ? deviceIdArg : undefined
-    try {
+    console.log(`[HardwareCapture] Triggered. sessionId=${session?.id}, deviceId=${deviceIdArg}`);
+    
+    if (!session?.id) {
+      console.error("[HardwareCapture] Missing session ID. Current session:", session);
+      toast.error("فشل التقاط الصورة: معرف الجلسة مفقود. يرجى تحديث الصفحة.");
+      return;
+    }
+    
+    const deviceId = typeof deviceIdArg === 'string' ? deviceIdArg : undefined;
       toast.info("جاري التقاط صورة عبر الكاميرا...")
       const snapshotBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
       const res = await fetch(`/api/hardware/camera/snapshot?branchId=${snapshotBranchId}`, {
@@ -2019,11 +2025,17 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
           <div className="flex items-center gap-3">
              {isHardwareEnabled && (
                <Button 
-                 onClick={() => { trackSource('CAMERA', 'hardware'); onHardwareCapture(selectedDeviceId); }} 
-                 disabled={!isCameraConnected}
+                 onClick={() => { 
+                   if (!isCameraConnected) {
+                     toast.error("الكاميرا غير متصلة أو غير جاهزة للالتقاط");
+                     return;
+                   }
+                   trackSource('CAMERA', 'hardware'); 
+                   onHardwareCapture(selectedDeviceId); 
+                 }} 
                  className={cn(
                    "h-10 px-6 rounded-xl font-bold text-xs gap-2 transition-all",
-                   isCameraConnected ? "bg-waha-gray-900 text-white shadow-lg shadow-waha-gray-900/20" : "bg-waha-gray-100 text-waha-gray-400"
+                   isCameraConnected ? "bg-waha-gray-900 text-white shadow-lg shadow-waha-gray-900/20" : "bg-waha-gray-100 text-waha-gray-400 opacity-70"
                  )}
                >
                   <Cpu className="w-4 h-4" /> التقاط عبر الكاميرا
