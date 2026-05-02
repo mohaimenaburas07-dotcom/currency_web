@@ -97,11 +97,7 @@ export async function POST(req: NextRequest) {
         mimeType: saved.mimeType,
         fileSizeBytes: saved.fileSizeBytes,
         capturedByUserId: operatorId,
-        metadata: {
-          branchId,
-          source: 'HARDWARE_CAMERA',
-          capturedAt: result.data.timestamp
-        }
+        capturedAt: new Date(result.data.timestamp)
       }
     });
 

@@ -7,6 +7,7 @@ const MEDIAMTX_API_BASE = 'http://localhost:9997/v3/config/paths';
 const MEDIAMTX_WHEP_BASE = 'http://localhost:8889';
 
 export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams;
   const branchId = await resolveBranchId(req);
   // Default to stream 2 (Substream) for better WebRTC compatibility (usually H.264)
   const streamId = parseInt(searchParams.get('streamId') || '2', 10);
