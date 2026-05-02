@@ -81,6 +81,7 @@ export function ExecuteOperation() {
     scanner: 'OFFLINE'
   })
   const [hardwareConfigData, setHardwareConfigData] = useState<any>({})
+  const hardwareConfig = hardwareConfigData; // Alias to prevent ReferenceErrors in handlers
   const [selectedDevices, setSelectedDevices] = useState<Record<string, string>>({})
   const [sourceMetadata, setSourceMetadata] = useState<Record<string, string>>({})
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null)
@@ -453,7 +454,7 @@ export function ExecuteOperation() {
     
     try {
       toast.info("جاري التقاط صورة عبر الكاميرا...")
-      const snapshotBranchId = session?.branchCode || hardwareConfigData?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
+      const snapshotBranchId = session?.branchCode || hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
       const res = await fetch(`/api/hardware/camera/snapshot?branchId=${snapshotBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -638,7 +639,7 @@ export function ExecuteOperation() {
     if (!session?.id) return
     try {
       toast.info(`جاري طباعة ${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}...`)
-      const printBranchId = session?.branchCode || hardwareConfigData?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
+      const printBranchId = session?.branchCode || hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
       const res = await fetch(`/api/hardware/printer/print?branchId=${printBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
