@@ -382,6 +382,16 @@ export function ExecuteOperation() {
     }
   }
 
+  const handleSkipIdentity = async () => {
+    // Commit the data we have from CBS to the session even without a scan
+    await handleVerifyIdentity(undefined, { 
+      name: dispCustomer.name, 
+      idNumber: dispCustomer.nationalId, 
+      passport: dispCustomer.passport,
+      source: 'manual_skip'
+    });
+  };
+
   const handleUploadMockPhoto = async (): Promise<boolean> => {
     if (!session?.id) return false
     try {
@@ -440,6 +450,8 @@ export function ExecuteOperation() {
     }
     
     const deviceId = typeof deviceIdArg === 'string' ? deviceIdArg : undefined;
+    
+    try {
       toast.info("جاري التقاط صورة عبر الكاميرا...")
       const snapshotBranchId = hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
       const res = await fetch(`/api/hardware/camera/snapshot?branchId=${snapshotBranchId}`, {
@@ -943,6 +955,7 @@ export function ExecuteOperation() {
               isVerified={isVerified} 
               onVerify={handleVerifyIdentity} 
               onNext={() => goToStep(6)} 
+              onSkip={handleSkipIdentity}
               hardwareStatus={hardwareStatus} 
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['SCANNER']}
@@ -1187,7 +1200,7 @@ function DeviceSelector({ type, devices, selectedId, onSelect }: { type: string,
   )
 }
 
-function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource }: any) {
+function Step2Identity({ customer, isVerified, onVerify, onNext, onSkip, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource }: any) {
   const [scannedDoc, setScannedDoc] = useState<string | null>(null);
   const [fileMetadata, setFileMetadata] = useState<any>(null);
   const [scannerInfo, setScannerInfo] = useState<any>(null);
@@ -1424,7 +1437,7 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, hardwareStatus,
                <div className="mt-8">
                   <Button 
                     variant="ghost" 
-                    onClick={onNext}
+                    onClick={onSkip || onNext}
                     className="text-waha-gray-400 hover:text-waha-gray-900 font-bold text-xs gap-2"
                   >
                      تجاوز وإضافة اللاحقاً <ArrowLeft className="w-3 h-3" />
