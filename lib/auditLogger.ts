@@ -24,6 +24,9 @@ export type AuditAction =
   | "HARDWARE_CAMERA_RECORD_STOP"
   | "HARDWARE_COUNTER_READ"
   | "HARDWARE_PRINTER_PRINT"
+  | "USER_LOGIN"
+  | "USER_LOGOUT"
+  | "MEDIA_DELETED"
 
 interface AuditEntry {
   action: AuditAction

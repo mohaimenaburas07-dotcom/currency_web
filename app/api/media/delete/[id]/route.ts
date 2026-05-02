@@ -55,7 +55,7 @@ export async function DELETE(
 
     // 4. Write audit log
     await writeAuditLog({
-      action: "DOCUMENT_UPLOADED", // reuse closest action; extend AuditAction if needed
+      action: "MEDIA_DELETED",
       entityType: "MediaRecord",
       entityId: id,
       sessionId: media.sessionId,

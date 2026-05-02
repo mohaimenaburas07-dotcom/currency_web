@@ -435,7 +435,7 @@ export function ExecuteOperation() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId: request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
+          branchId: hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
           operatorId: 'current-user',
           transactionId: session.id,
           deviceId: deviceId || selectedDevices['CAMERA']
@@ -491,7 +491,7 @@ export function ExecuteOperation() {
     if (!session?.id) return
     try {
       toast.info("جاري القراءة من آلة العدّ...")
-      const res = await fetch(`/api/hardware/counter/read?branchId=${request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID}`, {
+      const res = await fetch(`/api/hardware/counter/read?branchId=${hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -619,7 +619,7 @@ export function ExecuteOperation() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId: request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
+          branchId: hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
           operatorId: 'current-user',
           transactionId: session.id,
           deviceId: deviceId || selectedDevices['PRINTER'],

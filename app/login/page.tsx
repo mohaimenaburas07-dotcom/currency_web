@@ -70,6 +70,23 @@ export default function LoginPage() {
         branch_code: result.branchCode || result.branch_code || null
       }))
 
+      // Record Audit Log for Login
+      try {
+        await fetch("/api/audit-logs/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "USER_LOGIN",
+            userId: result.username,
+            entityType: "User",
+            entityId: result.id || result.username,
+            details: { login_time: new Date().toISOString() }
+          })
+        });
+      } catch (e) {
+        console.error("Failed to record login audit log:", e);
+      }
+
       toast.success("تم تسجيل الدخول بنجاح")
       router.push("/")
       router.refresh()

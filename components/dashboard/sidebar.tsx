@@ -40,6 +40,22 @@ export function DashboardSidebar() {
 
   const handleLogout = async () => {
     try {
+      const userStr = localStorage.getItem("alwaha_user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      
+      // Record Logout
+      if (user) {
+        await fetch("/api/audit-logs/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "USER_LOGOUT",
+            userId: user.username,
+            entityId: user.id || user.username
+          })
+        }).catch(() => {});
+      }
+
       await fetch("/api/auth/logout", { method: "POST" })
       localStorage.removeItem("alwaha_auth_token")
       localStorage.removeItem("alwaha_user")
