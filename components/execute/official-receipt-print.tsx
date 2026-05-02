@@ -28,12 +28,12 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
 
   if (!mounted) return null
 
-  // Extract data safely
+  // Extract data safely — prefer session top-level CBS fields, then requestSnapshot, then cbsData
   const req = session.requestSnapshot || {}
-  const customerName = cbsData?.customerName || req.customer?.fullName || req.customerName || ""
-  const nationalId = cbsData?.nationalId || req.customer?.nationalId || req.customerNationalId || ""
-  const passport = cbsData?.passportNo || req.customer?.passportNumber || ""
-  const phone = cbsData?.phoneNumber || req.customer?.phone || ""
+  const customerName = session.customerFullNameAr || session.customerFullNameEn || cbsData?.customerName || req.customer?.fullName || req.customerName || ""
+  const nationalId  = session.customerNid       || cbsData?.nationalId       || req.customer?.nationalId    || req.customerNationalId  || ""
+  const passport    = session.customerPassportNo || cbsData?.passportNo       || req.customer?.passportNumber || ""
+  const phone       = session.customerPhone      || cbsData?.phoneNumber      || req.customer?.phone          || ""
   const iban = req.bankAccount?.iban || req.customer?.iban || req.accountNumber || cbsData?.iban || cbsData?.accountNumber || ""
 
   const currency = req.contract?.currency_code || "USD"

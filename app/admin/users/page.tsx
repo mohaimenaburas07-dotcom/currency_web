@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Users, Shield, MapPin, Search, Loader2, Mail, Lock, User as UserIcon, Settings, ChevronLeft } from "lucide-react"
+import { Plus, Users, Shield, MapPin, Search, Loader2, Mail, Lock, User as UserIcon, Settings, ChevronLeft, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -76,6 +76,19 @@ export default function UserManagementPage() {
       toast.error(err.message)
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleDeleteUser = async (userId: string, username: string) => {
+    if (!confirm(`هل أنت متأكد من حذف المستخدم "${username}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return
+    try {
+      const res = await fetch(`/api/admin/users?id=${userId}`, { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "فشل حذف المستخدم")
+      toast.success(`تم حذف المستخدم "${username}" بنجاح`)
+      loadData()
+    } catch (err: any) {
+      toast.error(err.message)
     }
   }
 
@@ -239,6 +252,7 @@ export default function UserManagementPage() {
                     <th className="px-10 py-6 text-[10px] font-black text-waha-gray-400 uppercase tracking-[0.2em]">الفرع الحالي</th>
                     <th className="px-10 py-6 text-[10px] font-black text-waha-gray-400 uppercase tracking-[0.2em]">حالة الدخول</th>
                     <th className="px-10 py-6 text-[10px] font-black text-waha-gray-400 uppercase tracking-[0.2em]">تاريخ الإضافة</th>
+                    <th className="px-6 py-6 text-[10px] font-black text-waha-gray-400 uppercase tracking-[0.2em]">حذف</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -305,6 +319,15 @@ export default function UserManagementPage() {
                         </td>
                         <td className="px-10 py-8 text-xs font-black text-waha-gray-400 font-sans tabular-nums">
                           {new Date(user.created_at).toLocaleDateString('ar-LY', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                        </td>
+                        <td className="px-6 py-8">
+                          <button
+                            onClick={() => handleDeleteUser(String(user.id), user.username)}
+                            className="p-2 rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                            title="حذف المستخدم"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     )

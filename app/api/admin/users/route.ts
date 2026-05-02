@@ -82,3 +82,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("id");
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+    const userIdBig = BigInt(userId);
+
+    // Delete role assignments first (FK constraint)
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "user_roles" WHERE user_id = $1`,
+      userIdBig
+    );
+
+    // Delete the user
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "users" WHERE id = $1`,
+      userIdBig
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("[ADMIN_USERS_DELETE_ERROR]", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
