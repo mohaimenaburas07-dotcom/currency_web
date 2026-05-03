@@ -367,7 +367,7 @@ export function ExecuteOperation() {
 
       toast.success("تم التحقق من الهوية بنجاح")
       await loadData()
-      goToStep(6)
+      goToStep(2)  // B4: Go to cash count step after verification, NOT Step 6
     } catch (err: any) {
       console.error(err)
       toast.error("فشل التحقق من الهوية")
@@ -687,32 +687,28 @@ export function ExecuteOperation() {
 
       console.log(`[ConfirmChain] Fresh state: photo=${hasPhoto}, doc=${hasDocument}, video=${hasVideo}, cash=${hasCash}, receipt=${receiptDone}`)
 
-      // Step A: Auto-upload photo if missing
+      // B5/C4: Do NOT auto-upload fake media. Block with Arabic message and redirect to camera step.
       if (!hasPhoto) {
-        toast.info("جاري التقاط صورة وجه تلقائياً...")
-        const ok = await handleUploadMockPhoto()
-        if (!ok) { toast.error("فشل التقاط الصورة"); setIsConfirming(false); return }
+        toast.error("يجب التقاط صورة العميل قبل الإنهاء")
+        setIsConfirming(false)
+        goToStep(4)
+        return
       }
 
-      // Step B: Auto-upload video if missing
+      // Step B: Block if video is missing
       if (!hasVideo) {
-        toast.info("جاري تسجيل الفيديو تلقائياً...")
-        const ok = await handleUploadMockVideo()
-        if (!ok) { toast.error("فشل تسجيل الفيديو"); setIsConfirming(false); return }
+        toast.error("يجب تسجيل فيديو العميل قبل الإنهاء")
+        setIsConfirming(false)
+        goToStep(4)
+        return
       }
 
-      // Step C: Auto-complete cash count if missing
+      // Step C: Block if cash count is missing
       if (!hasCash) {
-        toast.info("جاري تسجيل بيانات العدّ النقدي تلقائياً...")
-        const ok = await handleUploadMockCash()
-        if (!ok) { toast.error("فشل تسجيل بيانات العدّ"); setIsConfirming(false); return }
-      }
-
-      // Step D: Auto-generate receipt if missing
-      if (!receiptDone) {
-        toast.info("جاري إنشاء الإيصال...")
-        const ok = await handleGenerateReceipt()
-        if (!ok) { setIsConfirming(false); return }
+        toast.error("يجب إتمام العد النقدي قبل الإنهاء")
+        setIsConfirming(false)
+        goToStep(2)
+        return
       }
 
       // Step E: Final confirmation

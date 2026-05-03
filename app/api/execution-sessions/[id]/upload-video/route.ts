@@ -25,7 +25,7 @@ export async function POST(
     const userId = formData.get("userId") as string ?? "system"
  
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ success: false, message: "لم يتم تقديم الملف" }, { status: 400 })
     }
  
     // Fallback customer code extraction from snapshot if missing

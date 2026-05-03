@@ -34,42 +34,26 @@ export async function PATCH(
     console.log(`[FCMS-Process] Processing request ${session.purchaseRequestUuid} for session ${id}...`)
 
     let response: any
-    let status = "SUCCESS"
-    let errorMessage = null
 
     try {
       response = await processPurchaseRequest(session.purchaseRequestUuid, payload)
       console.log(`[FCMS-Process] Success for ${id}:`, response)
     } catch (err: any) {
       console.error(`[FCMS-Process] Error for ${id}:`, err)
-      status = "FAILED"
-      errorMessage = err.message
-      
-      // Store the failed response snapshot if possible
-      await prisma.executionSession.update({
-        where: { id },
-        data: {
-          processSnapshot: {
-            error: err.message,
-            timestamp: new Date().toISOString(),
-            status: "FAILED"
-          }
-        }
-      })
-
-      return NextResponse.json({ 
-        success: false, 
-        error: err.message,
-        errorCode: err.message.match(/FCMS\d+/) ? err.message.match(/FCMS\d+/)[0] : null
-      }, { status: 200 }) // Return 200 but with success: false to show Arabic error in UI
+      // B2: Do NOT write processSnapshot on failure — keeps retry path open
+      return NextResponse.json({
+        success: false,
+        message: err.message || "تعذر الاتصال بخدمة FCMS الخارجية"
+      }, { status: 200 }) // 200 so frontend can parse JSON and show Arabic toast
     }
 
-    // 2. Update session with success snapshot
+    // 2. Update session with success snapshot and correct status
     await prisma.executionSession.update({
       where: { id },
       data: {
-        processSnapshot: response,
-        status: "READY_FOR_CONFIRMATION" // Move state forward
+        processSnapshot: { ...(response || {}), status: "SUCCESS" },
+        countingStatus: "DONE",
+        status: "RECORDING" // B2: was READY_FOR_CONFIRMATION — now correctly RECORDING
       }
     })
 
@@ -85,7 +69,7 @@ export async function PATCH(
       userAgent,
     })
 
-    return NextResponse.json({ success: true, response })
+    return NextResponse.json({ success: true, message: "تمت معالجة الطلب في FCMS بنجاح", response })
 
   } catch (err) {
     console.error("[FCMS-Process] unexpected error:", err)

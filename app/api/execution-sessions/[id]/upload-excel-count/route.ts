@@ -62,7 +62,7 @@ export async function POST(
       userId = formData.get("userId") as string ?? "system"
       cashCountSource = formData.get("cashCountSource") as string ?? "manual"
       if (!file) {
-        throw new ValidationError("No Excel file provided")
+        throw new ValidationError("لم يتم تقديم ملف Excel")
       }
       const buffer = Buffer.from(await file.arrayBuffer())
       filePath = await saveExcelFile(buffer, id, customerCode || "unknown", file.name)
@@ -80,13 +80,22 @@ export async function POST(
       throw new ValidationError("يجب إتمام التحقق من الهوية قبل العد النقدي")
     }
 
-    if (session.processSnapshot || session.countingStatus === "DONE") {
+    // B3: Safer retry guard — check processSnapshot.status explicitly
+    const snap = session.processSnapshot as any
+    if (session.countingStatus === "DONE" || (snap && snap.status === "SUCCESS")) {
       return NextResponse.json({
         success: true,
         message: "تم تنفيذ الطلب مسبقاً في FCMS، يرجى استكمال التوثيق المحلي",
         nextStatus: "RECORDING",
       })
     }
+    if (snap && snap.status === "PENDING") {
+      return NextResponse.json({
+        success: false,
+        message: "الطلب قيد المعالجة في FCMS. يرجى الانتظار أو تحديث الصفحة لمتابعة التوثيق المحلي.",
+      }, { status: 409 })
+    }
+    // status === "FAILED" or null → allow retry (fall through)
 
     // 4. Save results to DB in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -116,19 +125,38 @@ export async function POST(
       })
     })
 
-    // Call FCMS Process
-    const processResult = await processPurchaseRequest(session.purchaseRequestUuid, {
-      ts: Math.floor(Date.now() / 1000),
-      usd_serial_numbers: usdSerialNumbers
-    })
-
-    // Update session status
+    // B3: Write PENDING snapshot BEFORE calling FCMS — subsequent retries will see PENDING and block
     await prisma.executionSession.update({
       where: { id },
-      data: { 
+      data: { processSnapshot: { status: "PENDING", startedAt: new Date().toISOString() } }
+    })
+
+    // Call FCMS Process
+    let processResult: any
+    try {
+      processResult = await processPurchaseRequest(session.purchaseRequestUuid, {
+        ts: Math.floor(Date.now() / 1000),
+        usd_serial_numbers: usdSerialNumbers
+      })
+    } catch (fcmsErr: any) {
+      // FCMS failed — clear the PENDING snapshot so employee can retry
+      await prisma.executionSession.update({
+        where: { id },
+        data: { processSnapshot: { status: "FAILED", error: fcmsErr.message, failedAt: new Date().toISOString() } }
+      })
+      return NextResponse.json({
+        success: false,
+        message: fcmsErr.message || "تعذر الاتصال بخدمة FCMS الخارجية"
+      }, { status: 400 })
+    }
+
+    // B3: FCMS succeeded — write SUCCESS snapshot and advance session state atomically
+    await prisma.executionSession.update({
+      where: { id },
+      data: {
         countingStatus: "DONE",
         status: "RECORDING",
-        processSnapshot: processResult || {}
+        processSnapshot: { ...(processResult || {}), status: "SUCCESS", succeededAt: new Date().toISOString() }
       }
     })
 

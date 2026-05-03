@@ -10,9 +10,29 @@ export async function POST(
   try {
     const { id } = await params
     const { ipAddress, userAgent } = extractRequestMeta(req)
-    
+
     const body = await req.json().catch(() => ({}))
     const userId = body.userId ?? "system"
+
+    // B1: Guard — load existing status before mutating
+    const existing = await prisma.executionSession.findUnique({
+      where: { id },
+      select: { id: true, status: true }
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, message: "الجلسة غير موجودة" },
+        { status: 404 }
+      )
+    }
+
+    if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
+      return NextResponse.json(
+        { success: false, message: "هذه الجلسة مكتملة أو ملغاة" },
+        { status: 409 }
+      )
+    }
 
     const session = await prisma.executionSession.update({
       where: { id },

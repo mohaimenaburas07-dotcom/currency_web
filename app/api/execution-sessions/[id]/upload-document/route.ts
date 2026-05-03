@@ -28,7 +28,7 @@ export async function POST(
     const birthDate = formData.get("birthDate") as string ?? null
  
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ success: false, message: "لم يتم تقديم الملف" }, { status: 400 })
     }
  
     // Fallback customer code extraction from snapshot if missing
