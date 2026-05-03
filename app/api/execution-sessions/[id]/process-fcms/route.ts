@@ -40,11 +40,11 @@ export async function PATCH(
       console.log(`[FCMS-Process] Success for ${id}:`, response)
     } catch (err: any) {
       console.error(`[FCMS-Process] Error for ${id}:`, err)
-      // B2: Do NOT write processSnapshot on failure — keeps retry path open
+      // Do NOT write processSnapshot on failure — keeps retry path open
       return NextResponse.json({
         success: false,
         message: err.message || "تعذر الاتصال بخدمة FCMS الخارجية"
-      }, { status: 200 }) // 200 so frontend can parse JSON and show Arabic toast
+      }, { status: 400 }) // 400 so HTTP clients detect failure via status code
     }
 
     // 2. Update session with success snapshot and correct status

@@ -384,53 +384,12 @@ export function ExecuteOperation() {
     });
   };
 
-  const handleUploadMockPhoto = async (): Promise<boolean> => {
-    if (!session?.id) return false
-    try {
-      const blob = new Blob(["mock-photo"], { type: "image/jpeg" })
-      const file = new File([blob], "photo.jpg", { type: "image/jpeg" })
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("userId", "current-user")
+  // handleUploadMockPhoto and handleUploadMockVideo are permanently disabled.
+  // Real photo and video uploads are required. The confirm flow will block and redirect
+  // to Step 4 if either is missing.
+  //
+  // Do not restore this code — uploading fake media is a business compliance violation.
 
-      const token = localStorage.getItem("alwaha_auth_token")
-      const res = await fetch(`/api/execution-sessions/${session.id}/upload-photo`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
-      })
-      if (!res.ok) throw new Error("Failed to upload photo")
-      await loadData()
-      return true
-    } catch (err: any) {
-      console.error("[MockPhoto]", err)
-      return false
-    }
-  }
-
-  const handleUploadMockVideo = async (): Promise<boolean> => {
-    if (!session?.id) return false
-    try {
-      const blob = new Blob([new Uint8Array(1024)], { type: "video/webm" })
-      const file = new File([blob], "recording.webm", { type: "video/webm" })
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("userId", "current-user")
-
-      const token = localStorage.getItem("alwaha_auth_token")
-      const res = await fetch(`/api/execution-sessions/${session.id}/upload-video`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
-      })
-      if (!res.ok) throw new Error("Failed to upload video")
-      await loadData()
-      return true
-    } catch (err: any) {
-      console.error("[MockVideo]", err)
-      return false
-    }
-  }
 
   const handleHardwareCapture = async (deviceIdArg?: any) => {
     console.log(`[HardwareCapture] Triggered. sessionId=${session?.id}, deviceId=${deviceIdArg}`);
