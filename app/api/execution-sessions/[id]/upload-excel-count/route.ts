@@ -23,6 +23,10 @@ export async function POST(
       throw new SessionAlreadyCompletedError()
     }
 
+    if (session.verificationStatus !== "DONE") {
+      throw new ValidationError("Verification must be completed before counting cash")
+    }
+
     const contentType = req.headers.get("content-type") || ""
     let denominations: any[] = []
     let totalCountedAmount = 0
@@ -108,7 +112,7 @@ export async function POST(
       where: { id },
       data: { 
         countingStatus: "DONE",
-        status: "COUNTING_CASH" 
+        status: "RECORDING" 
       }
     })
 

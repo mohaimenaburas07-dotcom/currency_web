@@ -18,6 +18,7 @@ export async function POST(
       where: { id },
       data: {
         verificationStatus: "DONE",
+        status: "COUNTING_CASH",
         identityVerification: {
           upsert: {
             create: {
