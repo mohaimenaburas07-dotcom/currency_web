@@ -5,9 +5,16 @@ export async function GET() {
   try {
     const sessions = await prisma.executionSession.findMany({
       where: {
+        // Exclude DRAFT — only return sessions that have already started meaningful work
         status: {
-          in: ["DRAFT", "COUNTING_CASH", "RECORDING"],
+          in: ["COUNTING_CASH", "RECORDING"],
         },
+        // Require at least one real customer identifier
+        OR: [
+          { customerFullNameAr: { not: null } },
+          { customerNid: { not: null } },
+          { customerPhone: { not: null } },
+        ],
       },
       orderBy: {
         updatedAt: "desc",
