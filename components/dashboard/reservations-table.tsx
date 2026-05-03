@@ -440,11 +440,17 @@ export function ReservationsTable() {
                 {/* Bank Info */}
                 <div className="space-y-3">
                   <h4 className="text-[10px] font-black text-waha-gray-400 uppercase tracking-widest border-b border-waha-gray-100 pb-2 flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5" /> بيانات الحساب والجمعة
+                    <Globe className="w-3.5 h-3.5" /> بيانات الحساب والجهة
                   </h4>
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black text-waha-gray-400 uppercase">IBAN</span>
-                    <p className="text-sm font-mono font-bold text-waha-gray-900" dir="ltr">{selectedRequest.bankAccount?.iban || "—"}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">IBAN</span>
+                      <p className="text-sm font-mono font-bold text-waha-gray-900" dir="ltr">{selectedRequest.bankAccount?.iban || "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-waha-gray-400 uppercase">فرع التنفيذ</span>
+                      <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.usd_provider_branch?.name || selectedRequest.bank_branch?.name || "غير محدد"}</p>
+                    </div>
                   </div>
                 </div>
 

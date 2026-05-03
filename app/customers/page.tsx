@@ -37,6 +37,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [executionSessions, setExecutionSessions] = useState<any[]>([])
 
   // Dialog States
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
@@ -58,9 +59,26 @@ export default function CustomersPage() {
     }
   }, [])
 
+  const fetchExecutionSessions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/execution-sessions")
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch execution sessions")
+      }
+
+      const data = await res.json()
+      setExecutionSessions(data.sessions || [])
+    } catch (err) {
+      console.error(err)
+      toast.error("خطأ في تحميل سجل التنفيذ")
+    }
+  }, [])
+
   useEffect(() => {
     fetchCustomers()
-  }, [fetchCustomers])
+    fetchExecutionSessions()
+  }, [fetchCustomers, fetchExecutionSessions])
 
   const filteredCustomers = customers.filter(c =>
     (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,6 +93,22 @@ export default function CustomersPage() {
   const openDetails = (customer: any) => {
     setSelectedCustomer(customer)
     setIsDetailOpen(true)
+  }
+
+  const getCustomerSessions = (customer: any) => {
+    return executionSessions.filter((session) => {
+      const sameNid =
+        session.customerNid &&
+        customer.nationalId &&
+        session.customerNid === customer.nationalId
+
+      const samePhone =
+        session.customerPhone &&
+        customer.phone &&
+        session.customerPhone === customer.phone
+
+      return sameNid || samePhone
+    })
   }
 
   return (
@@ -157,6 +191,7 @@ export default function CustomersPage() {
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 px-8 uppercase tracking-wider">العميل</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">الرقم الوطني</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">رقم الهاتف</TableHead>
+                    <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">عمليات التنفيذ</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">البريد الإلكتروني</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">الحالة</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">تاريخ الإضافة</TableHead>
@@ -164,7 +199,11 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.map((customer) => (
+                  {filteredCustomers.map((customer) => {
+                    const customerSessions = getCustomerSessions(customer)
+                    const latestSession = customerSessions[0]
+
+                    return (
                     <TableRow key={customer.id} className="group hover:bg-waha-gray-50/50 border-b-waha-gray-50 transition-all duration-300 cursor-pointer" onClick={() => openDetails(customer)}>
                       <TableCell className="py-5 px-8">
                         <div className="flex items-center gap-4">
@@ -185,6 +224,20 @@ export default function CustomersPage() {
                           <Phone className="w-3.5 h-3.5 text-waha-gray-300" />
                           <span dir="ltr">{customer.phone || "—"}</span>
                         </div>
+                      </TableCell>
+                      <TableCell className="py-5" onClick={(e) => e.stopPropagation()}>
+                        {customerSessions.length === 0 ? (
+                          <span className="text-xs text-waha-gray-400">لا توجد</span>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl text-xs font-bold"
+                            onClick={() => window.location.href = `/execute?id=${latestSession.id}`}
+                          >
+                            {customerSessions.length} عملية - {latestSession.status}
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell className="py-5">
                         <div className="flex items-center gap-2 text-xs font-medium text-waha-gray-500">
@@ -228,7 +281,7 @@ export default function CustomersPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             )}
