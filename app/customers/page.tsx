@@ -80,11 +80,6 @@ export default function CustomersPage() {
     fetchExecutionSessions()
   }, [fetchCustomers, fetchExecutionSessions])
 
-  const filteredCustomers = customers.filter(c =>
-    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.nationalId || "").includes(searchQuery)
-  )
-
   const openReservation = (customer: any) => {
     setSelectedCustomer(customer)
     setIsResDialogOpen(true)
@@ -110,6 +105,38 @@ export default function CustomersPage() {
       return sameNid || samePhone
     })
   }
+
+  const mergedCustomers = [
+    ...customers,
+    ...executionSessions
+      .filter((session) => {
+        if (!session.customerNid && !session.customerPhone) return false
+
+        return !customers.some(
+          (customer) =>
+            customer.nationalId === session.customerNid ||
+            customer.phone === session.customerPhone
+        )
+      })
+      .map((session) => ({
+        id: `session-${session.id}`,
+        name:
+          session.customerFullNameAr ||
+          session.customerFullNameEn ||
+          "عميل غير معروف",
+        nationalId: session.customerNid || "",
+        phone: session.customerPhone || "",
+        email: "",
+        status: "active",
+        createdAt: session.createdAt,
+        fromExecutionSession: true,
+      })),
+  ]
+
+  const filteredCustomers = mergedCustomers.filter(c =>
+    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.nationalId || "").includes(searchQuery)
+  )
 
   return (
     <DashboardLayout title="العملاء" breadcrumb="إدارة العملاء">
@@ -142,13 +169,13 @@ export default function CustomersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <SummaryCard 
             label="إجمالي العملاء" 
-            value={customers.length.toString()} 
+            value={mergedCustomers.length.toString()} 
             icon={User} 
             color="waha-gold" 
           />
           <SummaryCard 
             label="العملاء النشطون" 
-            value={customers.filter(c => c.status === "active").length.toString()} 
+            value={mergedCustomers.filter(c => c.status === "active").length.toString()} 
             icon={CheckCircle2} 
             color="emerald-500" 
           />
