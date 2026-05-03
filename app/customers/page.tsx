@@ -37,7 +37,6 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [executionSessions, setExecutionSessions] = useState<any[]>([])
 
   // Dialog States
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
@@ -59,26 +58,14 @@ export default function CustomersPage() {
     }
   }, [])
 
-  const fetchExecutionSessions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/execution-sessions")
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch execution sessions")
-      }
-
-      const data = await res.json()
-      setExecutionSessions(data.sessions || [])
-    } catch (err) {
-      console.error(err)
-      toast.error("خطأ في تحميل سجل التنفيذ")
-    }
-  }, [])
-
   useEffect(() => {
     fetchCustomers()
-    fetchExecutionSessions()
-  }, [fetchCustomers, fetchExecutionSessions])
+  }, [fetchCustomers])
+
+  const filteredCustomers = customers.filter(c =>
+    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.nationalId || "").includes(searchQuery)
+  )
 
   const openReservation = (customer: any) => {
     setSelectedCustomer(customer)
@@ -89,55 +76,6 @@ export default function CustomersPage() {
     setSelectedCustomer(customer)
     setIsDetailOpen(true)
   }
-
-  const getCustomerSessions = (customer: any) => {
-    return executionSessions.filter((session) => {
-      const sameNid =
-        session.customerNid &&
-        customer.nationalId &&
-        session.customerNid === customer.nationalId
-
-      const samePhone =
-        session.customerPhone &&
-        customer.phone &&
-        session.customerPhone === customer.phone
-
-      return sameNid || samePhone
-    })
-  }
-
-  const mergedCustomers = [
-    ...customers,
-    ...executionSessions
-      .filter((session) => {
-        if (!session.customerNid && !session.customerPhone) return false
-
-        return !customers.some(
-          (customer) =>
-            customer.nationalId === session.customerNid ||
-            customer.phone === session.customerPhone
-        )
-      })
-      .map((session) => ({
-        id: `session-${session.id}`,
-        executionSessionId: session.id,
-        name:
-          session.customerFullNameAr ||
-          session.customerFullNameEn ||
-          "عميل غير معروف",
-        nationalId: session.customerNid || "",
-        phone: session.customerPhone || "",
-        email: "",
-        status: "active",
-        createdAt: session.createdAt,
-        fromExecutionSession: true,
-      })),
-  ]
-
-  const filteredCustomers = mergedCustomers.filter(c =>
-    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.nationalId || "").includes(searchQuery)
-  )
 
   return (
     <DashboardLayout title="العملاء" breadcrumb="إدارة العملاء">
@@ -170,13 +108,13 @@ export default function CustomersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <SummaryCard 
             label="إجمالي العملاء" 
-            value={mergedCustomers.length.toString()} 
+            value={customers.length.toString()} 
             icon={User} 
             color="waha-gold" 
           />
           <SummaryCard 
             label="العملاء النشطون" 
-            value={mergedCustomers.filter(c => c.status === "active").length.toString()} 
+            value={customers.filter(c => c.status === "active").length.toString()} 
             icon={CheckCircle2} 
             color="emerald-500" 
           />
@@ -219,7 +157,6 @@ export default function CustomersPage() {
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 px-8 uppercase tracking-wider">العميل</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">الرقم الوطني</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">رقم الهاتف</TableHead>
-                    <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">عمليات التنفيذ</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">البريد الإلكتروني</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">الحالة</TableHead>
                     <TableHead className="text-right text-[11px] font-bold text-waha-gray-400 h-12 uppercase tracking-wider">تاريخ الإضافة</TableHead>
@@ -227,23 +164,8 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.map((customer) => {
-                    const customerSessions = getCustomerSessions(customer)
-                    const latestSession = customerSessions[0]
-
-                    return (
-                    <TableRow
-                      key={customer.id}
-                      className="group hover:bg-waha-gray-50/50 border-b-waha-gray-50 transition-all duration-300 cursor-pointer"
-                      onClick={() => {
-                        if (customer.fromExecutionSession && customer.executionSessionId) {
-                          window.location.href = `/execute?id=${customer.executionSessionId}`
-                          return
-                        }
-
-                        openDetails(customer)
-                      }}
-                    >
+                  {filteredCustomers.map((customer) => (
+                    <TableRow key={customer.id} className="group hover:bg-waha-gray-50/50 border-b-waha-gray-50 transition-all duration-300 cursor-pointer" onClick={() => openDetails(customer)}>
                       <TableCell className="py-5 px-8">
                         <div className="flex items-center gap-4">
                           <div className="w-11 h-11 rounded-2xl bg-waha-gray-50 group-hover:bg-white flex items-center justify-center text-waha-gold font-black text-lg border border-transparent group-hover:border-waha-gold/20 transition-all shadow-sm">
@@ -263,20 +185,6 @@ export default function CustomersPage() {
                           <Phone className="w-3.5 h-3.5 text-waha-gray-300" />
                           <span dir="ltr">{customer.phone || "—"}</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="py-5" onClick={(e) => e.stopPropagation()}>
-                        {customerSessions.length === 0 ? (
-                          <span className="text-xs text-waha-gray-400">لا توجد</span>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl text-xs font-bold"
-                            onClick={() => window.location.href = `/execute?id=${latestSession.id}`}
-                          >
-                            {customerSessions.length} عملية - {latestSession.status}
-                          </Button>
-                        )}
                       </TableCell>
                       <TableCell className="py-5">
                         <div className="flex items-center gap-2 text-xs font-medium text-waha-gray-500">
@@ -308,19 +216,9 @@ export default function CustomersPage() {
                               تسجيل حجز جديد
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1 bg-waha-gray-100" />
-                            <DropdownMenuItem
-                              className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs"
-                              onClick={() => {
-                                if (customer.fromExecutionSession && customer.executionSessionId) {
-                                  window.location.href = `/execute?id=${customer.executionSessionId}`
-                                  return
-                                }
-
-                                openDetails(customer)
-                              }}
-                            >
+                            <DropdownMenuItem className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs" onClick={() => openDetails(customer)}>
                               <User className="w-4 h-4 text-waha-gray-400" />
-                              {customer.fromExecutionSession ? "عرض التنفيذ" : "عرض التفاصيل"}
+                              عرض ملف العميل
                             </DropdownMenuItem>
                             <DropdownMenuItem className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs text-red-500 hover:text-red-600 hover:bg-red-50">
                               <User className="w-4 h-4" />
@@ -330,7 +228,7 @@ export default function CustomersPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  )})}
+                  ))}
                 </TableBody>
               </Table>
             )}

@@ -47,7 +47,7 @@ export async function POST(
       where: { id },
       data: { 
         verificationStatus: matched ? "DONE" : "FAILED",
-        status: matched ? "COUNTING_CASH" : "DRAFT", 
+        status: "VERIFYING_IDENTITY" 
       }
     })
 
