@@ -803,7 +803,7 @@ export function ExecuteOperation() {
     rateRaw = rateRaw.rate || 0
   }
   const rate = typeof rateRaw === 'string' ? parseFloat(rateRaw) : Number(rateRaw)
-  const totalLYD = amountNum * rate
+  const totalLYD = Number(request?.cost || 0)
 
   const dispOperation = {
     id: request?.reference || "—",

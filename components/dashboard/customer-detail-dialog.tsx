@@ -231,7 +231,7 @@ export function CustomerDetailDialog({ customerId, open, onOpenChange }: Custome
                                  const amt = Number(res.amountRequested || 0)
                                  const rawRate = res.snapshot?.exchange_rate || res.snapshot?.contract?.bank_transfer_price || 0
                                  const rate = typeof rawRate === 'object' && rawRate !== null ? Number(rawRate.rate || 0) : Number(rawRate)
-                                 const lyd = res.equivalentLyd || (rate > 0 ? (amt * rate) : 0)
+                                 const lyd = Number(res.snapshot?.cost || res.equivalentLyd || 0)
                                  return <p className="text-lg font-black text-waha-gray-700">{lyd > 0 ? lyd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "—"} <span className="text-waha-gray-400">د.ل</span></p>
                                })()}
                             </div>

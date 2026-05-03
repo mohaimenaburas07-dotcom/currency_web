@@ -43,7 +43,8 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   // exchange_rate may be a nested object { date, rate } or a plain number
   const rawRate = req.contract?.bank_transfer_price || req.exchange_rate || req.rate || req.exchangeRate || session.transactionRecord?.exchangeRate || 0
   const rate = typeof rawRate === 'object' && rawRate !== null ? Number(rawRate.rate || 0) : Number(rawRate)
-  const totalLYD = (reqAmount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const totalLyd = Number(req.cost || 0)
+  const totalLYD = totalLyd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const amountWords = convertAmountToWords(reqAmount, currency)
   const fcmsRef = req.fcms_reference || session.id
   const branchName = cbsData?.branch || req.branch?.name_ar || "المركز الرئيسي"

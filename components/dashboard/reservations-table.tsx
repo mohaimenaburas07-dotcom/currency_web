@@ -303,7 +303,7 @@ export function ReservationsTable() {
                         </TableCell>
                         <TableCell className="py-2">
                           <span className="text-xs font-extrabold text-emerald-600">
-                            {(parseInt(req.amount_requested || "0") * rate).toLocaleString()} د.ل
+                            {Number(req.cost || 0).toLocaleString()} د.ل
                           </span>
                         </TableCell>
                         <TableCell className="py-2">
@@ -403,7 +403,7 @@ export function ReservationsTable() {
             const rateRaw = selectedRequest.contract?.bank_transfer_price || selectedRequest.exchange_rate || 0
             const rate = typeof rateRaw === 'object' && rateRaw !== null ? Number(rateRaw.rate || 0) : Number(rateRaw)
             const amount = parseInt(selectedRequest.amount_requested || "0")
-            const lyd = (amount * rate).toLocaleString()
+            const lyd = Number(selectedRequest.cost || 0).toLocaleString()
             const currency = selectedRequest.contract?.currency_code || "USD"
 
             return (
