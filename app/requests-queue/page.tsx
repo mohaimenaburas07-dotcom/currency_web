@@ -370,6 +370,10 @@ export default function RequestsQueuePage() {
                           </p>
                        </div>
                        <div className="space-y-1">
+                          <span className="text-[9px] font-black text-waha-gray-400 uppercase">فرع التنفيذ</span>
+                          <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.usd_provider_branch?.name || selectedRequest.bank_branch?.name || "غير محدد"}</p>
+                       </div>
+                       <div className="space-y-1">
                           <span className="text-[9px] font-black text-waha-gray-400 uppercase">اسم الشركة</span>
                           <p className="text-sm font-bold text-waha-gray-900">{selectedRequest.company?.name || "—"}</p>
                        </div>
