@@ -120,6 +120,7 @@ export default function CustomersPage() {
       })
       .map((session) => ({
         id: `session-${session.id}`,
+        executionSessionId: session.id,
         name:
           session.customerFullNameAr ||
           session.customerFullNameEn ||
@@ -231,7 +232,18 @@ export default function CustomersPage() {
                     const latestSession = customerSessions[0]
 
                     return (
-                    <TableRow key={customer.id} className="group hover:bg-waha-gray-50/50 border-b-waha-gray-50 transition-all duration-300 cursor-pointer" onClick={() => openDetails(customer)}>
+                    <TableRow
+                      key={customer.id}
+                      className="group hover:bg-waha-gray-50/50 border-b-waha-gray-50 transition-all duration-300 cursor-pointer"
+                      onClick={() => {
+                        if (customer.fromExecutionSession && customer.executionSessionId) {
+                          window.location.href = `/execute?id=${customer.executionSessionId}`
+                          return
+                        }
+
+                        openDetails(customer)
+                      }}
+                    >
                       <TableCell className="py-5 px-8">
                         <div className="flex items-center gap-4">
                           <div className="w-11 h-11 rounded-2xl bg-waha-gray-50 group-hover:bg-white flex items-center justify-center text-waha-gold font-black text-lg border border-transparent group-hover:border-waha-gold/20 transition-all shadow-sm">
@@ -296,9 +308,19 @@ export default function CustomersPage() {
                               تسجيل حجز جديد
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1 bg-waha-gray-100" />
-                            <DropdownMenuItem className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs" onClick={() => openDetails(customer)}>
+                            <DropdownMenuItem
+                              className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs"
+                              onClick={() => {
+                                if (customer.fromExecutionSession && customer.executionSessionId) {
+                                  window.location.href = `/execute?id=${customer.executionSessionId}`
+                                  return
+                                }
+
+                                openDetails(customer)
+                              }}
+                            >
                               <User className="w-4 h-4 text-waha-gray-400" />
-                              عرض ملف العميل
+                              {customer.fromExecutionSession ? "عرض التنفيذ" : "عرض التفاصيل"}
                             </DropdownMenuItem>
                             <DropdownMenuItem className="gap-3 h-11 rounded-xl cursor-pointer font-bold text-xs text-red-500 hover:text-red-600 hover:bg-red-50">
                               <User className="w-4 h-4" />
