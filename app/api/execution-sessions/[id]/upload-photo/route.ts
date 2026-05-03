@@ -89,8 +89,8 @@ export async function POST(
       userAgent,
     })
 
-    return NextResponse.json(record)
-  } catch (err) {
-    return NextResponse.json(toErrorResponse(err), { status: 400 })
+    return NextResponse.json({ success: true, message: "تم رفع الصورة بنجاح", data: record })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: "تعذر رفع الصورة", error: err.message }, { status: 400 })
   }
 }

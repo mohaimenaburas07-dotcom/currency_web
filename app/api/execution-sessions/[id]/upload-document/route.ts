@@ -69,15 +69,6 @@ export async function POST(
         }
       })
 
-      // Update session verification status
-      await tx.executionSession.update({
-        where: { id },
-        data: { 
-          verificationStatus: "DONE",
-          status: "RECORDING" 
-        }
-      })
-
       // Create or update IdentityVerification record
       const verification = await tx.identityVerification.upsert({
         where: { sessionId: id },
@@ -119,9 +110,9 @@ export async function POST(
 
     console.log(`[UploadDoc] Transaction complete for session ${id}. Media=${result.record.id}, Verification=${result.verification.id}`);
 
-    return NextResponse.json(result.record)
-  } catch (err) {
+    return NextResponse.json({ success: true, message: "تم رفع المستند بنجاح", data: result.record })
+  } catch (err: any) {
     console.error("[upload-document] error:", err)
-    return NextResponse.json(toErrorResponse(err), { status: 400 })
+    return NextResponse.json({ success: false, message: "تعذر رفع المستند", error: err.message }, { status: 400 })
   }
 }

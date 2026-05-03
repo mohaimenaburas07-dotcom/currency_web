@@ -140,6 +140,7 @@ export default function ReportsPage() {
 
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0])
   const [dailyRecords, setDailyRecords] = useState<any[]>([])
+  const [reportSummary, setReportSummary] = useState<any>(null)
   const [reportLoading, setReportLoading] = useState(false)
 
   const fetchDailyReport = useCallback(async () => {
@@ -149,9 +150,11 @@ export default function ReportsPage() {
       const res = await fetch(`/api/reports/daily?date=${reportDate}`)
       if (res.ok) {
         const json = await res.json()
-        setDailyRecords(json.records || [])
+        setDailyRecords(json.rows || [])
+        setReportSummary(json.summary || null)
       } else {
         setDailyRecords([])
+        setReportSummary(null)
       }
     } catch (e) {
       console.error(e)
@@ -222,12 +225,23 @@ export default function ReportsPage() {
               </div>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
+                 <Card className="p-5 border-0 shadow-sm bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
+                   <div className="flex items-center justify-between">
+                     <div>
+                       <p className="text-white/80 text-sm">عدد العملاء</p>
+                       <p className="text-3xl font-black mt-1">{reportSummary?.customersCount || 0}</p>
+                     </div>
+                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                       <Users className="w-6 h-6" />
+                     </div>
+                   </div>
+                 </Card>
                  <Card className="p-5 border-0 shadow-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                    <div className="flex items-center justify-between">
                      <div>
-                       <p className="text-white/80 text-sm">عدد المعاملات اليوم</p>
-                       <p className="text-3xl font-black mt-1">{dailyRecords.length}</p>
+                       <p className="text-white/80 text-sm">عدد العمليات</p>
+                       <p className="text-3xl font-black mt-1">{reportSummary?.transactionsCount || 0}</p>
                      </div>
                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                        <FileText className="w-6 h-6" />
@@ -239,7 +253,7 @@ export default function ReportsPage() {
                      <div>
                        <p className="text-white/80 text-sm">إجمالي المباع (دولار)</p>
                        <p className="text-2xl font-black mt-1">
-                         {dailyRecords.reduce((acc, r) => acc + (r.amountForeign || 0), 0).toLocaleString()} $
+                         {(reportSummary?.totalUsd || 0).toLocaleString()} $
                        </p>
                      </div>
                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -252,7 +266,7 @@ export default function ReportsPage() {
                      <div>
                        <p className="text-white/90 text-sm">إجمالي المستلم (دينار)</p>
                        <p className="text-2xl font-black mt-1">
-                         {dailyRecords.reduce((acc, r) => acc + (r.amountLocal || 0), 0).toLocaleString()} د.ل
+                         {(reportSummary?.totalLyd || 0).toLocaleString()} د.ل
                        </p>
                      </div>
                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">

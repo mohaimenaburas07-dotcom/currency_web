@@ -16,18 +16,16 @@ export async function GET(req: NextRequest) {
     const endDate = new Date(dateStr)
     endDate.setHours(23, 59, 59, 999)
 
-    const records = await prisma.receivedCustomerRecord.findMany({
+    const records = await prisma.transactionRecord.findMany({
       where: {
-        createdAt: {
+        executedAt: {
           gte: startDate,
           lte: endDate,
         },
-        transactionRecord: {
-          status: "COMPLETED",
-        }
+        status: "COMPLETED",
       },
       include: {
-        transactionRecord: true
+        receivedCustomerRecord: true
       }
     })
 
@@ -35,19 +33,29 @@ export async function GET(req: NextRequest) {
       if (searchParams.get("format") === "xlsx") {
          return NextResponse.json({ success: false, message: "لا توجد عمليات مكتملة لهذا اليوم" }, { status: 404 })
       }
-      return NextResponse.json({ success: true, records: [] })
+      return NextResponse.json({ 
+        success: true, 
+        message: "تم تحميل تقرير اليوم", 
+        summary: { date: dateStr, customersCount: 0, transactionsCount: 0, totalUsd: 0, totalLyd: 0 }, 
+        rows: [] 
+      })
     }
 
+    const totalUsd = records.reduce((sum, r) => sum + Number(r.amountForeign), 0)
+    const totalLyd = records.reduce((sum, r) => sum + Number(r.amountLocal), 0)
+    // Unique customers by nationalId if available, fallback to tracking ID
+    const uniqueCustomers = new Set(records.map(r => r.receivedCustomerRecord?.nationalId || r.id))
+    
     if (searchParams.get("format") === "xlsx") {
       const data = records.map(r => ({
-        "رقم العملية": r.transactionRecord?.transactionNumber || "N/A",
-        "اسم العميل": r.customerName,
-        "الرقم الوطني": r.nationalId,
-        "رقم الإيصال": r.receiptNumber,
+        "رقم العملية": r.transactionNumber || "N/A",
+        "اسم العميل": r.receivedCustomerRecord?.customerName || "N/A",
+        "الرقم الوطني": r.receivedCustomerRecord?.nationalId || "N/A",
+        "رقم الإيصال": r.receivedCustomerRecord?.receiptNumber || "N/A",
         "المبلغ (دولار)": Number(r.amountForeign),
         "المبلغ (دينار)": Number(r.amountLocal),
-        "الرقم التسلسلي (Hardware)": r.transactionRecord?.serialNumber || "N/A",
-        "تاريخ وتوقت التنفيذ": r.createdAt.toLocaleString("ar-LY")
+        "الرقم التسلسلي (Hardware)": r.serialNumber || "N/A",
+        "تاريخ وتوقت التنفيذ": r.executedAt.toLocaleString("ar-LY")
       }))
 
       const ws = xlsx.utils.json_to_sheet(data)
@@ -67,16 +75,24 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      records: records.map(r => ({
+      message: "تم تحميل تقرير اليوم",
+      summary: {
+        date: dateStr,
+        customersCount: uniqueCustomers.size,
+        transactionsCount: records.length,
+        totalUsd,
+        totalLyd
+      },
+      rows: records.map(r => ({
         id: r.id,
-        transactionNumber: r.transactionRecord?.transactionNumber || "N/A",
-        customerName: r.customerName,
-        nationalId: r.nationalId,
-        receiptNumber: r.receiptNumber,
+        transactionNumber: r.transactionNumber || "N/A",
+        customerName: r.receivedCustomerRecord?.customerName || "N/A",
+        nationalId: r.receivedCustomerRecord?.nationalId || "N/A",
+        receiptNumber: r.receivedCustomerRecord?.receiptNumber || "N/A",
         amountForeign: Number(r.amountForeign),
         amountLocal: Number(r.amountLocal),
-        serialNumber: r.transactionRecord?.serialNumber || "N/A",
-        executedAt: r.createdAt.toISOString()
+        serialNumber: r.serialNumber || "N/A",
+        executedAt: r.executedAt.toISOString()
       }))
     })
   } catch (err: any) {
