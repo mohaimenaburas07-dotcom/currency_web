@@ -32,32 +32,52 @@ export async function GET(req: NextRequest) {
     })
 
     if (records.length === 0) {
-      return NextResponse.json({ success: false, message: "لا توجد عمليات مكتملة لهذا اليوم" }, { status: 404 })
+      if (searchParams.get("format") === "xlsx") {
+         return NextResponse.json({ success: false, message: "لا توجد عمليات مكتملة لهذا اليوم" }, { status: 404 })
+      }
+      return NextResponse.json({ success: true, records: [] })
     }
 
-    const data = records.map(r => ({
-      "رقم العملية": r.transactionRecord?.transactionNumber || "N/A",
-      "اسم العميل": r.customerName,
-      "الرقم الوطني": r.nationalId,
-      "رقم الإيصال": r.receiptNumber,
-      "المبلغ (دولار)": Number(r.amountForeign),
-      "المبلغ (دينار)": Number(r.amountLocal),
-      "الرقم التسلسلي (Hardware)": r.transactionRecord?.serialNumber || "N/A",
-      "تاريخ وتوقت التنفيذ": r.createdAt.toLocaleString("ar-LY")
-    }))
+    if (searchParams.get("format") === "xlsx") {
+      const data = records.map(r => ({
+        "رقم العملية": r.transactionRecord?.transactionNumber || "N/A",
+        "اسم العميل": r.customerName,
+        "الرقم الوطني": r.nationalId,
+        "رقم الإيصال": r.receiptNumber,
+        "المبلغ (دولار)": Number(r.amountForeign),
+        "المبلغ (دينار)": Number(r.amountLocal),
+        "الرقم التسلسلي (Hardware)": r.transactionRecord?.serialNumber || "N/A",
+        "تاريخ وتوقت التنفيذ": r.createdAt.toLocaleString("ar-LY")
+      }))
 
-    const ws = xlsx.utils.json_to_sheet(data)
-    const wb = xlsx.utils.book_new()
-    xlsx.utils.book_append_sheet(wb, ws, "التقرير اليومي")
+      const ws = xlsx.utils.json_to_sheet(data)
+      const wb = xlsx.utils.book_new()
+      xlsx.utils.book_append_sheet(wb, ws, "التقرير اليومي")
 
-    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" })
+      const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" })
 
-    return new NextResponse(buf, {
-      status: 200,
-      headers: {
-        "Content-Disposition": `attachment; filename="daily-report-${dateStr}.xlsx"`,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }
+      return new NextResponse(buf, {
+        status: 200,
+        headers: {
+          "Content-Disposition": `attachment; filename="daily-report-${dateStr}.xlsx"`,
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      records: records.map(r => ({
+        id: r.id,
+        transactionNumber: r.transactionRecord?.transactionNumber || "N/A",
+        customerName: r.customerName,
+        nationalId: r.nationalId,
+        receiptNumber: r.receiptNumber,
+        amountForeign: Number(r.amountForeign),
+        amountLocal: Number(r.amountLocal),
+        serialNumber: r.transactionRecord?.serialNumber || "N/A",
+        executedAt: r.createdAt.toISOString()
+      }))
     })
   } catch (err: any) {
     console.error("[daily-report] error:", err)

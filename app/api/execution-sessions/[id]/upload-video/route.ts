@@ -16,7 +16,7 @@ export async function POST(
     const session = await prisma.executionSession.findUniqueOrThrow({ where: { id } })
     console.log(`[VIDEO_UPLOAD] Session ${id} | Customer: ${session.customerCode}`)
  
-    if (["COMPLETED", "CANCELLED"].includes(session.status)) {
+    if (session.status === "CANCELLED") {
       throw new SessionAlreadyCompletedError()
     }
  
@@ -64,10 +64,19 @@ export async function POST(
       }
     })
 
+    const sessionWithMedia = await prisma.executionSession.findUnique({
+      where: { id },
+      include: { mediaRecords: true }
+    })
+    const hasPhoto = sessionWithMedia?.mediaRecords.some(m => m.mediaType === 'PHOTO')
+
     // Video usually follows photo in recording step
     await prisma.executionSession.update({
       where: { id },
-      data: { status: "RECORDING" }
+      data: { 
+        cameraStatus: hasPhoto ? "DONE" : session.cameraStatus,
+        status: session.status !== "COMPLETED" ? "RECORDING" : session.status 
+      }
     })
 
     await writeAuditLog({

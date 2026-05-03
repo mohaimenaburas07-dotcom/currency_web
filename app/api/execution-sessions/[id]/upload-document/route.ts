@@ -15,7 +15,7 @@ export async function POST(
     const session = await prisma.executionSession.findUniqueOrThrow({ where: { id } })
     console.log(`[DOCUMENT_UPLOAD] Session ${id} | Customer: ${session.customerCode}`)
  
-    if (["COMPLETED", "CANCELLED"].includes(session.status)) {
+    if (session.status === "CANCELLED") {
       throw new SessionAlreadyCompletedError()
     }
  
