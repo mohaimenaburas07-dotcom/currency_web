@@ -5,6 +5,7 @@ import { saveExcelFile } from "@/lib/mediaStorage"
 import { parseCountingExcel } from "@/lib/excelCountParser"
 import { writeAuditLog, extractRequestMeta } from "@/lib/auditLogger"
 import { toErrorResponse, SessionAlreadyCompletedError, ValidationError } from "@/lib/workflowErrors"
+import { processPurchaseRequest } from "@/lib/fxApiClient"
 
 export async function POST(
   req: NextRequest,
@@ -75,6 +76,18 @@ export async function POST(
     const requestedAmount = (session.requestSnapshot as any)?.amount_requested ?? 0
     const isMatched = Math.abs(Number(totalCountedAmount) - Number(requestedAmount)) < 0.01
 
+    if (session.verificationStatus !== "DONE") {
+      throw new ValidationError("يجب إتمام التحقق من الهوية قبل العد النقدي")
+    }
+
+    if (session.processSnapshot || session.countingStatus === "DONE") {
+      return NextResponse.json({
+        success: true,
+        message: "تم تنفيذ الطلب مسبقاً في FCMS، يرجى استكمال التوثيق المحلي",
+        nextStatus: "RECORDING",
+      })
+    }
+
     // 4. Save results to DB in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.cashCountResult.findUnique({ where: { sessionId: id } })
@@ -103,12 +116,19 @@ export async function POST(
       })
     })
 
+    // Call FCMS Process
+    const processResult = await processPurchaseRequest(session.purchaseRequestUuid, {
+      ts: Math.floor(Date.now() / 1000),
+      usd_serial_numbers: usdSerialNumbers
+    })
+
     // Update session status
     await prisma.executionSession.update({
       where: { id },
       data: { 
         countingStatus: "DONE",
-        status: "COUNTING_CASH" 
+        status: "RECORDING",
+        processSnapshot: processResult || {}
       }
     })
 
@@ -125,6 +145,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
+      message: "تم حفظ العد النقدي وتنفيذ الطلب في FCMS بنجاح",
       ts: Math.floor(Date.now() / 1000),
       usd_serial_numbers: usdSerialNumbers,
       serialCount: usdSerialNumbers.length,

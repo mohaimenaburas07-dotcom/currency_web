@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 interface PrintReceiptProps {
   session: any
   cbsData?: any
+  noPrint?: boolean
 }
 
 function convertAmountToWords(amount: number, currency: string) {
@@ -14,17 +15,18 @@ function convertAmountToWords(amount: number, currency: string) {
   return `${amount} ${currency} Only`
 }
 
-export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
+export function OfficialReceiptPrint({ session, cbsData, noPrint }: PrintReceiptProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+    if (noPrint) return
     // Add a slight delay to ensure fonts and styles are loaded
     const timeout = setTimeout(() => {
       window.print()
     }, 500)
     return () => clearTimeout(timeout)
-  }, [])
+  }, [noPrint])
 
   if (!mounted) return null
 
@@ -239,7 +241,7 @@ export function OfficialReceiptPrint({ session, cbsData }: PrintReceiptProps) {
   return (
     <div className="w-full flex flex-col items-center justify-start bg-white p-4 gap-12 min-h-screen">
       {/* Container simulating A4 page layout */}
-      <div className="print-page print:m-0 print:p-0 flex flex-col gap-16">
+      <div className="print-page print:m-0 print:p-0 flex flex-col gap-16 min-w-max">
         {renderCopy('CUSTOMER', 'نسخة العميل — Customer Copy')}
 
         {/* Scissor cut line */}

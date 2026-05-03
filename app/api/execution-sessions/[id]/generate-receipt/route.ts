@@ -21,6 +21,7 @@ export async function POST(
       where: { id },
       include: {
         cashCountResult: { include: { denominations: true } },
+        receipt: true
       }
     })
 
@@ -28,6 +29,15 @@ export async function POST(
 
     if (session.status === "CANCELLED") {
       throw new SessionAlreadyCompletedError()
+    }
+
+    if (session.receipt) {
+       return NextResponse.json({
+         success: true,
+         message: "تم تحميل الإيصال السابق ويمكن إعادة طباعته",
+         receiptNumber: session.receipt.receiptNumber,
+         customerCopyUrl: `/uploads/${session.receipt.customerCopyPath}`
+       })
     }
 
     if (!session.cashCountResult) {
@@ -82,16 +92,8 @@ export async function POST(
     const archiveCopyPath  = await saveReceiptFile(pdfBuffer, receiptNumber, "archive")
 
     // 6. Create Receipt record
-    const receipt = await prisma.receipt.upsert({
-      where: { sessionId: id },
-      update: {
-        receiptNumber,
-        customerCopyPath,
-        archiveCopyPath,
-        printedByUserId: userId ?? "system",
-        printedAt: new Date(),
-      },
-      create: {
+    const receipt = await prisma.receipt.create({
+      data: {
         sessionId: id,
         receiptNumber,
         customerCopyPath,
@@ -101,12 +103,11 @@ export async function POST(
       }
     })
 
-    // Update session status
+    // Update session status (don't change main status to avoid backwards steps)
     await prisma.executionSession.update({
       where: { id },
       data: { 
-        receiptStatus: "DONE",
-        status: "READY_FOR_CONFIRMATION" 
+        receiptStatus: "DONE"
       }
     })
 
@@ -123,11 +124,15 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
+      message: "تم إنشاء الإيصال بنجاح",
       receiptNumber: receipt.receiptNumber,
       customerCopyUrl: `/uploads/${customerCopyPath}`,
     })
-  } catch (err) {
+  } catch (err: any) {
     console.error("[generate-receipt] error:", err)
-    return NextResponse.json(toErrorResponse(err), { status: 400 })
+    return NextResponse.json(
+      { success: false, message: "تعذر إنشاء الإيصال", code: "RECEIPT_GENERATION_FAILED" }, 
+      { status: 400 }
+    )
   }
 }

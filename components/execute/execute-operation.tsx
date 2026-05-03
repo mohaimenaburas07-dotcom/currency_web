@@ -169,43 +169,11 @@ export function ExecuteOperation() {
 
   const handleProcessRequest = async () => {
     if (!session?.id) return
-    
-    const serials = session.cashCountResult?.usdSerialNumbers || []
-    if (serials.length === 0) {
-      toast.error("يجب رفع ملف العد أو قراءة آلة العد قبل معالجة الطلب")
+    if (session.countingStatus !== "DONE") {
+      toast.error("يجب إتمام العد النقدي أولاً")
       return
     }
-
-    try {
-      setIsProcessing(true)
-      const token = localStorage.getItem("alwaha_auth_token")
-      const ts = request?.timestamp || Math.floor(Date.now() / 1000);
-      
-      const res = await fetch(`/api/fx/process/${request.uuid}`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          ts: ts,
-          usd_serial_numbers: serials
-        })
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "فشلت عملية المعالجة في النظام المركزي" }))
-        throw new Error(err.error || "فشلت عملية المعالجة في النظام المركزي")
-      }
-
-      toast.success("تمت معالجة الطلب بنجاح")
-      await loadData()
-      goToStep(3)
-    } catch (error: any) {
-      toast.error(error.message)
-    } finally {
-      setIsProcessing(false)
-    }
+    goToStep(3)
   }
 
   const goToStep = (step: number) => {
@@ -273,6 +241,22 @@ export function ExecuteOperation() {
       const fullSession = await fullSessionRes.json()
       setSession(fullSession)
       setRequest(fullSession.requestSnapshot)
+
+      // Auto-resume logic
+      if (!searchParams.has("step")) {
+        let expectedStep = 1;
+        if (fullSession.status === "COMPLETED") expectedStep = 6;
+        else if (fullSession.verificationStatus !== "DONE") expectedStep = 1;
+        else if (fullSession.countingStatus !== "DONE") expectedStep = 2;
+        else if (fullSession.cameraStatus !== "DONE") expectedStep = 3;
+        else expectedStep = 6;
+
+        if (expectedStep !== 1) {
+          const params = new URLSearchParams(searchParams.toString())
+          params.set("step", expectedStep.toString())
+          router.replace(`${pathname}?${params.toString()}`)
+        }
+      }
 
       if (fullSession.customerCode) {
         const previewRes = await fetch(`/api/execution-sessions/${uuid}/receipt-preview?t=${Date.now()}`, { headers })
@@ -552,10 +536,15 @@ export function ExecuteOperation() {
           })
         })
         
-        if (!saveRes.ok) throw new Error("Failed to save hardware count data")
+        const saveResult = await saveRes.json().catch(() => ({}))
         
-        toast.success("تمت قراءة البيانات من الآلة ومطابقتها بنجاح")
+        if (!saveRes.ok || saveResult.success === false) {
+          throw new Error(saveResult.message || "Failed to save hardware count data")
+        }
+        
+        toast.success(saveResult.message || "تم حفظ العد النقدي وتنفيذ الطلب بنجاح")
         await loadData()
+        goToStep(3)
       } else {
         throw new Error(result.error?.message || "فشلت عملية القراءة من الآلة")
       }
@@ -581,24 +570,20 @@ export function ExecuteOperation() {
         body: formData
       })
 
-      if (!res.ok) {
-         const errData = await res.json().catch(() => ({ message: "Failed to upload excel" }))
-         throw new Error(errData.message || "Failed to upload excel")
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok || result.success === false) {
+        toast.error(result.message || "حدث خطأ غير متوقع أثناء الرفع والمعالجة")
+        return
       }
 
-      const result = await res.json()
-      if (result.success) {
-        if (result.serialCount > 0) {
-          setExtractionMessage(`تم استخراج ${result.serialCount} رقم تسلسلي من ملف العد`)
-          toast.success(`تم استخراج ${result.serialCount} رقم تسلسلي`)
-        } else {
-          setExtractionMessage("لم يتم العثور على أرقام تسلسلية صالحة")
-          toast.warning("لم يتم العثور على أرقام تسلسلية صالحة")
-        }
-        await loadData()
+      toast.success(result.message || "تم حفظ العد النقدي وتنفيذ الطلب بنجاح")
+      if (result.serialCount > 0) {
+        setExtractionMessage(`تم استخراج ${result.serialCount} رقم تسلسلي من ملف العد`)
       } else {
-        throw new Error(result.message || "فشلت عملية معالجة الملف")
+        setExtractionMessage("لم يتم العثور على أرقام تسلسلية صالحة")
       }
+      await loadData()
+      goToStep(3)
     } catch (err: any) {
       toast.error(err.message || "حدث خطأ أثناء رفع الملف")
     }
@@ -621,17 +606,15 @@ export function ExecuteOperation() {
         },
         body: JSON.stringify({ userId: "current-user", executorName: "أحمد محمد" })
       })
-      if (!res.ok) {
-        const data = await res.json()
-        const msg = data.error || "فشل إنشاء الإيصال"
-        console.error("[GenerateReceipt] Backend error:", data)
-        throw new Error(msg)
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok || result.success === false) {
+        throw new Error(result.message || "تعذر إنشاء الإيصال")
       }
-      toast.success("تم إنشاء الإيصال بنجاح")
+      toast.success(result.message || "تم إنشاء الإيصال بنجاح")
       await loadData()
       return true
     } catch (err: any) {
-      toast.error(err.message || "فشل إنشاء الإيصال")
+      toast.error(err.message || "تعذر إنشاء الإيصال")
       return false
     }
   }

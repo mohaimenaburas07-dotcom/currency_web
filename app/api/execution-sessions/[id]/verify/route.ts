@@ -18,6 +18,7 @@ export async function POST(
       where: { id },
       data: {
         verificationStatus: "DONE",
+        status: "COUNTING_CASH",
         identityVerification: {
           upsert: {
             create: {
@@ -51,14 +52,17 @@ export async function POST(
       entityId:          session.id,
       performedByUserId: userId,
       sessionId:         session.id,
-      newValues:         { verificationStatus: "DONE" },
+      newValues:         { verificationStatus: "DONE", status: "COUNTING_CASH" },
       ipAddress,
       userAgent,
     })
 
-    return NextResponse.json({ success: true, session })
+    return NextResponse.json({ success: true, message: "تم التحقق من الهوية بنجاح", session })
   } catch (err) {
     console.error("[verify] error:", err)
-    return NextResponse.json(toErrorResponse(err), { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "تعذر التحقق من الهوية", code: "IDENTITY_VERIFICATION_FAILED" }, 
+      { status: 500 }
+    )
   }
 }

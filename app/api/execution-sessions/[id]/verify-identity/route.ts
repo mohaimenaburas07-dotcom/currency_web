@@ -47,7 +47,7 @@ export async function POST(
       where: { id },
       data: { 
         verificationStatus: matched ? "DONE" : "FAILED",
-        status: "VERIFYING_IDENTITY" 
+        status: matched ? "COUNTING_CASH" : "DRAFT"
       }
     })
 
@@ -62,8 +62,15 @@ export async function POST(
       userAgent,
     })
 
-    return NextResponse.json(verification)
+    return NextResponse.json({
+      success: true,
+      message: matched ? "تم التحقق من الهوية بنجاح" : "لم يتم التطابق، تعذر التحقق من الهوية",
+      data: verification
+    })
   } catch (err) {
-    return NextResponse.json(toErrorResponse(err), { status: 400 })
+    return NextResponse.json(
+      { success: false, message: "تعذر التحقق من الهوية", code: "IDENTITY_VERIFICATION_FAILED" },
+      { status: 400 }
+    )
   }
 }

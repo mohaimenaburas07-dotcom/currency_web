@@ -40,29 +40,27 @@ export async function POST(
 
       // 1b. Checklist validation — log full state for debugging
       const docVerified = session.identityVerification?.matched === true
-      const hasIdentityMedia = session.mediaRecords.some(m => m.mediaType === 'PHOTO' || m.mediaType === 'DOCUMENT')
+      const hasPhoto = session.mediaRecords.some(m => m.mediaType === 'PHOTO')
       const hasVideo = session.mediaRecords.some(m => m.mediaType === 'VIDEO')
       const hasCash = !!session.cashCountResult
       const cashMatched = session.cashCountResult?.isMatchedWithRequest === true
-      const hasReceipt = !!session.receipt
       const hasProcessSnapshot = !!session.processSnapshot
 
       console.log(`[Confirm] Session ${id} checklist:
   identity_verified=${docVerified}
-  has_identity_media=${hasIdentityMedia}
+  has_photo=${hasPhoto}
   has_video=${hasVideo}
   cash_done=${hasCash}
   cash_matched=${cashMatched}
-  receipt=${hasReceipt}
   fcms_processed=${hasProcessSnapshot}
   status=${session.status}`)
 
       if (!docVerified) throw new ValidationError("لم يتم التحقق من الهوية — يرجى إتمام خطوة التحقق")
-      if (!hasIdentityMedia) throw new ValidationError("لم يتم رفع وثيقة أو صورة الهوية")
-      if (!hasVideo) throw new ValidationError("تسجيل الفيديو مطلوب")
       if (!hasCash) throw new ValidationError("لم يتم إدخال بيانات العدّ النقدي")
       if (!cashMatched) throw new ValidationError("المبلغ المعدود لا يطابق المبلغ المطلوب")
-      if (!hasReceipt) throw new ValidationError("لم يتم إنشاء الإيصال")
+      if (!hasProcessSnapshot) throw new ValidationError("لم تتم معالجة الطلب في المنظومة المركزية (FCMS)")
+      if (!hasVideo) throw new ValidationError("تسجيل الفيديو مطلوب")
+      if (!hasPhoto) throw new ValidationError("التقاط صورة العميل مطلوب")
 
       // 1c. Fetch CBS data (with fallback to snapshot if CBS unreachable)
       const snapshot = session.requestSnapshot as any
@@ -122,7 +120,7 @@ export async function POST(
           amountForeign: txnRecord.amountForeign,
           exchangeRate: txnRecord.exchangeRate,
           amountLocal: txnRecord.amountLocal,
-          receiptNumber: session.receipt.receiptNumber,
+          receiptNumber: session.receipt?.receiptNumber ?? "NOT_PRINTED",
           receivedByUserId: userId ?? "system",
         },
         create: {
@@ -140,7 +138,7 @@ export async function POST(
           amountForeign: txnRecord.amountForeign,
           exchangeRate: txnRecord.exchangeRate,
           amountLocal: txnRecord.amountLocal,
-          receiptNumber: session.receipt.receiptNumber,
+          receiptNumber: session.receipt?.receiptNumber ?? "NOT_PRINTED",
           receivedByUserId: userId ?? "system",
         }
       })

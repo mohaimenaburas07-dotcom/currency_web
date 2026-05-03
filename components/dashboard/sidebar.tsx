@@ -15,6 +15,7 @@ import {
   Settings,
   ClipboardList,
   ListOrdered,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -24,6 +25,7 @@ const navItems = [
   { icon: ClipboardList, label: "طلبات معلقة", href: "/pending-requests" },
   { icon: ListOrdered, label: "قائمة الانتظار", href: "/requests-queue" },
   { icon: PlayCircle, label: "تنفيذ العمليات", href: "/execute" },
+  { icon: RefreshCw, label: "استكمال العمليات", href: "/pending-local-completion" },
   { icon: Users, label: "العملاء", href: "/customers" },
   { icon: FileText, label: "التقارير", href: "/reports" },
 ]
