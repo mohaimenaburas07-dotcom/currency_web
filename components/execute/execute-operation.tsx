@@ -245,11 +245,26 @@ export function ExecuteOperation() {
       // Auto-resume logic
       if (!searchParams.has("step")) {
         let expectedStep = 1;
-        if (fullSession.status === "COMPLETED") expectedStep = 6;
-        else if (fullSession.verificationStatus !== "DONE") expectedStep = 1;
-        else if (fullSession.countingStatus !== "DONE") expectedStep = 2;
-        else if (fullSession.cameraStatus !== "DONE") expectedStep = 3;
-        else expectedStep = 6;
+        const isRecovered = fullSession.processSnapshot?.source === "RECOVERED_FROM_FCMS_PROCESSED"
+
+        if (fullSession.status === "COMPLETED") {
+          expectedStep = 6;
+        } else if (isRecovered) {
+          // Recovered sessions already have counting and verification done
+          if (fullSession.receiptStatus !== "DONE") expectedStep = 3;
+          else if (fullSession.cameraStatus !== "DONE") expectedStep = 4;
+          else expectedStep = 5;
+        } else if (fullSession.verificationStatus !== "DONE") {
+          expectedStep = 1;
+        } else if (fullSession.countingStatus !== "DONE") {
+          expectedStep = 2;
+        } else if (fullSession.receiptStatus !== "DONE") {
+          expectedStep = 3;
+        } else if (fullSession.cameraStatus !== "DONE") {
+          expectedStep = 4;
+        } else {
+          expectedStep = 6;
+        }
 
         if (expectedStep !== 1) {
           const params = new URLSearchParams(searchParams.toString())
@@ -580,12 +595,15 @@ export function ExecuteOperation() {
 
   const handleHardwarePrint = async (copyType: 'CUSTOMER' | 'ARCHIVE', deviceId?: string) => {
     if (!session?.id) return
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 s timeout
     try {
       toast.info(`جاري طباعة ${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}...`)
-      const printBranchId = session?.branchCode || hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID;
+      const printBranchId = session?.branchCode || hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID
       const res = await fetch(`/api/hardware/printer/print?branchId=${printBranchId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           branchId: hardwareConfig?.branchCode || request?.branch_id || HARDWARE_CONFIG.DEFAULT_BRANCH_ID,
           operatorId: 'current-user',
@@ -602,22 +620,27 @@ export function ExecuteOperation() {
           }
         })
       })
+      clearTimeout(timeoutId)
       if (!res.ok) {
         const text = await res.text()
-        throw new Error(`Print failed (${res.status}): ${text.substring(0, 50)}`)
+        throw new Error(`Print failed (${res.status}): ${text.substring(0, 80)}`)
       }
       const result = await res.json()
-      
       if (result.success) {
-        toast.success("تم إرسال أمر الطباعة بنجاح")
+        toast.success('تم إرسال الإيصال للطابعة بنجاح')
       } else {
-        throw new Error(result.error?.message || "فشلت عملية الطباعة")
+        throw new Error(result.error?.message || 'تعذر إرسال الإيصال للطابعة، يمكنك إعادة المحاولة')
       }
     } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || "حدث خطأ أثناء الاتصال بالطابعة")
+      clearTimeout(timeoutId)
+      if (err.name === 'AbortError') {
+        toast.error('انتهت مهلة الاتصال بالطابعة، يمكنك إعادة المحاولة')
+      } else {
+        toast.error(err.message || 'تعذر إرسال الإيصال للطابعة، يمكنك إعادة المحاولة')
+      }
     }
   }
+
 
   const handleConfirmOperation = async () => {
     if (!session?.id) {
@@ -853,14 +876,17 @@ export function ExecuteOperation() {
           )}
 
           {currentStep === 3 && (
-            <Step6Receipt 
+            <Step6Receipt
               session={session}
-              customer={dispCustomer} 
-              operation={dispOperation} 
-              denominations={dispDenominations} 
-              serialNumber={serialNumber} 
+              customer={dispCustomer}
+              operation={dispOperation}
+              denominations={dispDenominations}
+              serialNumber={serialNumber}
               usdSerialNumbers={session?.cashCountResult?.usdSerialNumbers}
               onPrint={handleHardwarePrint}
+              onGenerateReceipt={handleGenerateReceipt}
+              hasReceipt={session?.receiptStatus === 'DONE'}
+              onSkipPrint={() => goToStep(4)}
               hardwareStatus={hardwareStatus}
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['PRINTER']}
@@ -871,16 +897,16 @@ export function ExecuteOperation() {
           )}
 
           {currentStep === 4 && (
-            <Step3Documentation 
-              isRecording={isRecording} 
-              setIsRecording={setIsRecording} 
-              onCapturePhoto={handleUploadMockPhoto}
-              onCaptureVideo={handleUploadMockVideo}
+            <Step3Documentation
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              onCapturePhoto={null}
+              onCaptureVideo={null}
               onHardwareCapture={handleHardwareCapture}
               hardwareStatus={hardwareStatus}
               hardwareConfig={hardwareConfigData}
               session={session}
-              onNext={() => goToStep(5)} 
+              onNext={() => goToStep(5)}
               onRefreshSession={loadData}
               devicesCollection={hardwareConfigData?.devicesCollection}
               selectedDeviceId={selectedDevices['CAMERA']}
@@ -2331,47 +2357,58 @@ function Step5Confirm({ customer, operation, serialNumber, setSerialNumber, onCo
   )
 }
 
-function Step6Receipt({ session, customer, operation, denominations, serialNumber, usdSerialNumbers, onPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, onNext }: any) {
+function Step6Receipt({ session, customer, operation, denominations, serialNumber, usdSerialNumbers, onPrint, onGenerateReceipt, hasReceipt, onSkipPrint, hardwareStatus, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, onNext }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isPrinterConnected = hardwareStatus?.printer === 'CONNECTED'
   const [printLog, setPrintLog] = useState<string | null>(null)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const handleHardwarePrintWithLog = async (copyType: 'CUSTOMER' | 'ARCHIVE') => {
     setIsPrinting(true)
     setPrintLog(null)
     trackSource('PRINTER', 'hardware')
-    console.log(`[Print] Hardware print requested. copyType=${copyType}, printerConnected=${isPrinterConnected}, deviceId=${selectedDeviceId}`)
     try {
       await onPrint(copyType, selectedDeviceId)
       setPrintLog(`✓ تم إرسال أمر الطباعة (${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}) إلى الطابعة`)
     } catch (err: any) {
-      const msg = err.message || 'خطأ غير معروف'
-      setPrintLog(`✗ فشلت الطباعة: ${msg}`)
+      setPrintLog(`✗ فشلت الطباعة: ${err.message || 'خطأ غير معروف'}`)
     } finally {
       setIsPrinting(false)
     }
   }
 
   const handleBrowserPrint = (copyType: 'CUSTOMER' | 'ARCHIVE' = 'CUSTOMER') => {
-    console.log(`[Print] Browser print dialog invoked. copyType=${copyType}`)
     setPrintLog('جاري فتح نافذة الطباعة...')
     trackSource('PRINTER', 'local_browser')
     const el = document.getElementById('receipt-printable')
     if (el) el.setAttribute('data-copy-type', copyType)
     setTimeout(() => {
       window.print()
-      setPrintLog(`✓ تم فتح نافذة الطباعة (${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'}) — اختر الطابعة المناسبة`)
+      setPrintLog(`✓ تم فتح نافذة الطباعة (${copyType === 'CUSTOMER' ? 'نسخة العميل' : 'نسخة الأرشيف'})`)
     }, 100)
+  }
+
+  const handleGenerate = async () => {
+    setIsGenerating(true)
+    setPrintLog(null)
+    try {
+      await onGenerateReceipt()
+      setPrintLog('✓ تم إنشاء الإيصال — يمكنك طباعته الآن')
+    } catch {
+      setPrintLog('✗ تعذر إنشاء الإيصال')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
     <div className="relative flex flex-col animate-in fade-in duration-500" dir="rtl">
-       <DeviceSelector 
-         type="PRINTER" 
-         devices={devicesCollection || []} 
-         selectedId={selectedDeviceId} 
-         onSelect={onSelectDevice} 
+       <DeviceSelector
+         type="PRINTER"
+         devices={devicesCollection || []}
+         selectedId={selectedDeviceId}
+         onSelect={onSelectDevice}
        />
        {/* Success Banner */}
        <div className="bg-emerald-600 text-white px-8 py-4 rounded-3xl shadow-xl flex items-center justify-between mb-8 border border-emerald-400/30 animate-in slide-in-from-top-4 duration-700">
@@ -2394,11 +2431,11 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
           {/* Receipt Preview (Left) — printable area */}
           <div id="receipt-printable" className="flex-1 flex flex-col min-h-0 bg-white rounded-[2.5rem] shadow-2xl border border-waha-gray-100 overflow-hidden">
              <div className="flex-1 overflow-auto">
-                <ReceiptPreview 
-                  customer={customer} 
-                  operation={operation} 
-                  denominations={denominations} 
-                  serialNumber={serialNumber} 
+                <ReceiptPreview
+                  customer={customer}
+                  operation={operation}
+                  denominations={denominations}
+                  serialNumber={serialNumber}
                   usdSerialNumbers={usdSerialNumbers}
                   isEmbed={true}
                 />
@@ -2409,7 +2446,38 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
           <div className="w-72 flex flex-col gap-4 shrink-0 justify-center">
              <div className="bg-white rounded-3xl p-6 border border-waha-gray-100 shadow-sm space-y-4">
                 <p className="text-[10px] font-bold text-waha-gray-400 uppercase tracking-widest text-center">خيارات الطباعة</p>
-                
+
+                {/* Generate / Reprint section — always shown */}
+                <div className="space-y-2 pb-3 border-b border-waha-gray-100">
+                  {!hasReceipt ? (
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={isGenerating}
+                      className="w-full h-12 bg-waha-gold hover:bg-waha-gold/90 text-waha-gray-900 font-black rounded-xl shadow-md gap-2 text-xs"
+                    >
+                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                      طباعة الإيصال
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={isGenerating}
+                      variant="outline"
+                      className="w-full h-12 rounded-xl border-waha-gray-200 font-black text-xs gap-2 hover:bg-waha-gray-50"
+                    >
+                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                      إعادة طباعة الإيصال
+                    </Button>
+                  )}
+                  <Button
+                    onClick={onSkipPrint}
+                    variant="ghost"
+                    className="w-full h-10 text-waha-gray-500 hover:text-waha-gray-900 font-bold text-xs rounded-xl"
+                  >
+                    تخطي الطباعة والمتابعة
+                  </Button>
+                </div>
+
                 {/* Hardware print section */}
                 {isHardwareEnabled && (
                   <div className="space-y-2 pb-3 border-b border-waha-gray-100">
@@ -2419,7 +2487,7 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
                         {isPrinterConnected ? "الطابعة متصلة" : "الطابعة غير متصلة (agent offline)"}
                       </span>
                     </div>
-                    <Button 
+                    <Button
                       onClick={() => handleHardwarePrintWithLog('CUSTOMER')}
                       disabled={!isPrinterConnected || isPrinting}
                       className={cn(
@@ -2430,7 +2498,7 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
                        {isPrinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}
                        طباعة مباشرة — نسخة العميل
                     </Button>
-                    <Button 
+                    <Button
                       onClick={() => handleHardwarePrintWithLog('ARCHIVE')}
                       disabled={!isPrinterConnected || isPrinting}
                       variant="outline"
@@ -2449,7 +2517,7 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
 
                 {/* Browser print — always available */}
                 <div className="space-y-2">
-                  <Button 
+                  <Button
                     onClick={() => {
                       setPrintLog('جاري تجهيز الإيصال الرسمي...')
                       trackSource('PRINTER', 'local_browser')
@@ -2478,24 +2546,24 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
 
              <div className="bg-waha-gray-900 rounded-3xl p-6 shadow-xl space-y-4">
                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest text-center">الإنهاء والعودة</p>
-                 <Button 
-                   className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/10" 
+                 <Button
+                   className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/10"
                    onClick={() => window.location.href='/reservations'}
                  >
                     العودة لجدول الحجوزات
                  </Button>
-                 
-                 <Button 
-                   className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg mt-2" 
+
+                 <Button
+                   className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg mt-2"
                    onClick={onNext}
                  >
-                    المتابعة لمرحلة العدّ
+                    المتابعة للتوثيق المرئي
                     <ChevronLeft className="w-4 h-4 mr-2" />
                  </Button>
 
-                 <Button 
+                 <Button
                    variant="ghost"
-                   className="w-full h-10 text-white/50 hover:text-white font-bold text-xs" 
+                   className="w-full h-10 text-white/50 hover:text-white font-bold text-xs"
                    onClick={() => window.location.href='/'}
                  >
                     الرئيسية
@@ -2506,6 +2574,7 @@ function Step6Receipt({ session, customer, operation, denominations, serialNumbe
     </div>
   )
 }
+
 
 
 function InfoRow({

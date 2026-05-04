@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { Printer } from "lucide-react"
 import { OfficialReceiptPrint } from "@/components/execute/official-receipt-print"
 
 export default function ReceiptPreviewPage() {
@@ -56,5 +57,20 @@ export default function ReceiptPreviewPage() {
     iban: "LY50012002001220888000016"
   }
 
-  return <OfficialReceiptPrint session={session} cbsData={cbsData} noPrint />
+  return (
+    <>
+      {/* Floating Print Button - Hidden when printing */}
+      <div className="fixed bottom-8 right-8 z-50 print:hidden">
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-2 bg-[#F9AE41] text-white px-6 py-3 rounded-full font-bold shadow-2xl hover:bg-[#e09b35] transition-all transform hover:scale-105 active:scale-95"
+        >
+          <Printer className="w-5 h-5" />
+          <span>Print Receipt</span>
+        </button>
+      </div>
+
+      <OfficialReceiptPrint session={session} cbsData={cbsData} noPrint />
+    </>
+  )
 }

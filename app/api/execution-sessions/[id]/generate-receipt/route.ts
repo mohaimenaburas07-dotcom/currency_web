@@ -41,7 +41,7 @@ export async function POST(
     }
 
     if (!session.cashCountResult) {
-      throw new ValidationError("Cash count not found. Complete counting first.")
+      throw new ValidationError("لم يتم إدخال بيانات العدّ النقدي — يرجى إتمام خطوة العدّ أولاً")
     }
 
     // 2. Fetch CBS data for the receipt (with fallback)

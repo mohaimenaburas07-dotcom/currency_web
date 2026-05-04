@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "build:safe": "cross-env NODE_OPTIONS=--max-old-space-size=4096 NEXT_CPU_CORES=4 next build",
     "start": "next start",
     "lint": "eslint ."
   },
@@ -71,6 +72,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@types/uuid": "^10.0.0",
+    "cross-env": "^10.1.0",
     "postcss": "^8.5",
     "prisma": "^6.19.3",
     "tailwindcss": "^4.2.0",

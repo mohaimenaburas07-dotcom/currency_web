@@ -26,6 +26,7 @@ const navItems = [
   { icon: ListOrdered, label: "قائمة الانتظار", href: "/requests-queue" },
   { icon: PlayCircle, label: "تنفيذ العمليات", href: "/execute" },
   { icon: RefreshCw, label: "استكمال العمليات", href: "/pending-local-completion" },
+  { icon: RotateCcw, label: "استرجاع طلب منفذ", href: "/recover-processed" },
   { icon: Users, label: "العملاء", href: "/customers" },
   { icon: FileText, label: "التقارير", href: "/reports" },
 ]

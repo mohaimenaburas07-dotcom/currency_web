@@ -7,6 +7,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    // Limit parallel static-generation workers to prevent OOM crash
+    // with heavy dependencies like @react-pdf/renderer
+    cpus: 2,
+  },
   async rewrites() {
     return [
       {
