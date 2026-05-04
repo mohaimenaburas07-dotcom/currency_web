@@ -49,7 +49,13 @@ export function OfficialReceiptPrint({ session, cbsData, noPrint }: PrintReceipt
   const totalLYD = totalLyd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const amountWords = convertAmountToWords(reqAmount, currency)
   const fcmsRef = req.fcms_reference || session.id
-  const branchName = cbsData?.branch || req.branch?.name_ar || "المركز الرئيسي"
+  const branchName = 
+    req.usd_provider_branch?.name || 
+    session.requestSnapshot?.usd_provider_branch?.name || 
+    session.processSnapshot?.fcmsResponse?.usd_provider_branch?.name ||
+    cbsData?.branch || 
+    req.branch?.name_ar || 
+    "غير محدد"
 
   const serialNumber = session.transactionRecord?.serialNumber || ""
   const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -126,15 +132,11 @@ export function OfficialReceiptPrint({ session, cbsData, noPrint }: PrintReceipt
           <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">اشاري المعاملة</div>
         </div>
 
-        {/* Row 3b: Amount in LYD */}
+        {/* Row 3b: Amount in LYD (Exchange Rate Hidden per Requirement 2) */}
         <div className="flex border-b border-gray-400 items-stretch h-8 bg-gray-50/50">
           <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Equivalent in LYD</div>
-          <div className="w-32 px-2 flex items-center font-bold text-sm tracking-widest">{totalLYD}</div>
-          <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-x border-gray-400" dir="rtl">المعادل بالدينار</div>
-
-          <div className="w-32 px-2 flex items-center text-gray-600 border-r border-gray-400">Exchange Rate</div>
-          <div className="flex-1 px-2 flex items-center font-bold font-mono tracking-wide">{rate}</div>
-          <div className="w-24 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">سعر الصرف</div>
+          <div className="flex-1 px-2 flex items-center font-bold text-sm tracking-widest">{totalLYD}</div>
+          <div className="w-32 px-2 flex items-center justify-end text-gray-600 border-l border-gray-400" dir="rtl">المعادل بالدينار</div>
         </div>
 
         {/* Row 4: ID / Passport / Phone */}

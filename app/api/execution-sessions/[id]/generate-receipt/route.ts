@@ -81,7 +81,8 @@ export async function POST(
         subtotal: Number(d.subtotal),
       })),
       executorName: executorName ?? "موظف مصرف الواحة",
-      branchName: cbsData?.branch || snapshot?.branch_name || "مصرف الواحة",
+      branchName: snapshot?.usd_provider_branch?.name || cbsData?.branch || snapshot?.branch_name || "مصرف الواحة",
+      usdProviderBranchName: snapshot?.usd_provider_branch?.name || null,
     }
 
     // 4. Generate PDF (Placeholder for now, returning dummy buffer)

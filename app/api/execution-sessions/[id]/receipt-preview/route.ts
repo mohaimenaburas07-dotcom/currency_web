@@ -44,7 +44,8 @@ export async function GET(
       },
       denominations: session.cashCountResult?.denominations ?? [],
       executorName: "Current User", // Frontend should replace this
-      branchName: cbsData.branch,
+      branchName: snapshot?.usd_provider_branch?.name || cbsData.branch || "مصرف الواحة",
+      usdProviderBranchName: snapshot?.usd_provider_branch?.name || null,
     }
 
     return NextResponse.json(preview)

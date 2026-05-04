@@ -17,6 +17,8 @@ interface ReceiptPreviewProps {
     amount: string
     rate: string
     totalLYD: string
+    branchName?: string
+    usdProviderBranchName?: string | null
     reference?: string
   }
   denominations: { value: number; count: number; total: number }[]
@@ -158,8 +160,7 @@ export function ReceiptPreview({
               {/* Staff Info */}
               <Section title="بيانات التنفيذ">
                 <ReceiptRow label="منفذ العملية" value="أحمد محمد" />
-                <ReceiptRow label="أمين الصندوق" value="علي إبراهيم" />
-                <ReceiptRow label="الفرع" value="طرابلس - المركز الرئيسي" />
+                <ReceiptRow label="الفرع" value={operation.usdProviderBranchName || operation.branchName || "طرابلس - المركز الرئيسي"} />
               </Section>
 
               {/* Footer */}
@@ -179,7 +180,7 @@ export function ReceiptPreview({
               <Section title="تفاصيل العملية">
                 <ReceiptRow label="نوع العملة" value={operation.currency} />
                 <ReceiptRow label="المبلغ" value={operation.amount} />
-                <ReceiptRow label="سعر الصرف" value={operation.rate} />
+                {/* سعر الصرف hidden per Requirement 2 */}
               </Section>
 
               {/* Denominations */}

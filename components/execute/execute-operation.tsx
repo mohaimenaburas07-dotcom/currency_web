@@ -563,6 +563,44 @@ export function ExecuteOperation() {
     }
   }
 
+  const handleAgentUpload = async (agentData: any) => {
+    if (!session?.id) return
+    try {
+      setIsProcessing(true)
+      setExtractionMessage(null)
+      const token = localStorage.getItem("alwaha_auth_token")
+      
+      const res = await fetch(`/api/execution-sessions/${session.id}/upload-agent-count`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...agentData,
+          userId: "current-user"
+        })
+      })
+
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok || result.success === false) {
+        toast.error(result.message || "حدث خطأ أثناء معالجة بيانات الوكيل المحلي")
+        return
+      }
+
+      toast.success(result.message || "تم حفظ العد النقدي وتنفيذ الطلب بنجاح")
+      if (result.serialCount > 0) {
+        setExtractionMessage(`تم استخراج ${result.serialCount} رقم تسلسلي من جهاز GFS-220`)
+      }
+      await loadData()
+      goToStep(3)
+    } catch (err: any) {
+      toast.error(err.message || "حدث خطأ أثناء الاتصال بالخادم")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   const handleUploadMockCash = async (): Promise<boolean> => {
     // Replaced by handleExcelUpload
     return false
@@ -863,6 +901,7 @@ export function ExecuteOperation() {
               operation={dispOperation} 
               denominations={dispDenominations} 
               onUpload={handleExcelUpload}
+              onAgentUpload={handleAgentUpload}
               onHardwareRead={handleHardwareRead}
               hardwareStatus={hardwareStatus}
               devicesCollection={hardwareConfigData?.devicesCollection}
@@ -2168,10 +2207,110 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   )
 }
 
-function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead, hardwareStatus, onNext, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, extractionMessage, isLoading }: any) {
+function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload, onHardwareRead, hardwareStatus, onNext, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, extractionMessage, isLoading }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCounterConnected = hardwareStatus?.counter === 'CONNECTED'
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Local Agent State
+  const [agentStatus, setAgentStatus] = useState<'OFFLINE' | 'ONLINE' | 'DEVICE_ERROR' | 'CHECKING'>('CHECKING')
+  const [isResetting, setIsResetting] = useState(false)
+  const [isReadingAgent, setIsReadingAgent] = useState(false)
+
+  const checkLocalAgent = useCallback(async () => {
+    try {
+      const healthRes = await fetch('http://localhost:5088/health', { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      if (!healthRes?.ok) {
+        setAgentStatus('OFFLINE')
+        return
+      }
+      
+      const statusRes = await fetch('http://localhost:5088/api/device/status', { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      if (statusRes?.ok) {
+        const data = await statusRes.json()
+        if (data.success && data.status?.isReady) {
+          setAgentStatus('ONLINE')
+        } else {
+          setAgentStatus('DEVICE_ERROR')
+        }
+      } else {
+        setAgentStatus('ONLINE') // Health ok but status failed? Treat as online for now
+      }
+    } catch (e) {
+      setAgentStatus('OFFLINE')
+    }
+  }, [])
+
+  useEffect(() => {
+    checkLocalAgent()
+    const interval = setInterval(checkLocalAgent, 10000)
+    return () => clearInterval(interval)
+  }, [checkLocalAgent])
+
+  const handleAgentReset = async () => {
+    setIsResetting(true)
+    try {
+      const res = await fetch('http://localhost:5088/api/session/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deleteFiles: true,
+          reason: "Starting new count",
+          operatorId: "current-user"
+        })
+      })
+      if (res.ok) {
+        toast.success("تم بدء جلسة عد جديدة بنجاح. يمكنك الآن استخدام جهاز GFS-220.")
+      } else {
+        throw new Error("فشل تصفير الجلسة")
+      }
+    } catch (e) {
+      toast.error("تعذر الاتصال بالوكيل المحلي لتصفير الجلسة")
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  const handleAgentRead = async () => {
+    setIsReadingAgent(true)
+    try {
+      toast.info("جاري انتظار ملف العد من جهاز GFS-220...")
+      const res = await fetch('http://localhost:5088/api/files/latest?includeFileBase64=false&moveToArchive=false&waitForFile=true&timeoutSeconds=30')
+      
+      if (!res.ok) {
+        if (res.status === 404) throw new Error("لا توجد نتيجة عد جديدة من الجهاز")
+        throw new Error("تعذر قراءة ملف العد من جهاز GFS-220")
+      }
+
+      const agentData = await res.json()
+      if (!agentData.success || !agentData.data) {
+        throw new Error(agentData.message || "بيانات العد غير صالحة")
+      }
+
+      // Map GFS-220 Agent JSON to Backend format
+      // Expecting shape based on GFS-220 serial parser exports
+      const countData = agentData.data
+      const normalized = {
+        currency: countData.summary?.currency || "USD",
+        total: countData.summary?.totalAmount || 0,
+        denominations: (countData.denominations || []).map((d: any) => ({
+          denomination: d.denomination,
+          notesCount: d.count,
+          subtotal: d.amount
+        })),
+        usd_serial_numbers: countData.serialNumbers || [],
+        rawAgentResponse: agentData
+      }
+
+      trackSource('COUNTER', 'gfs220_agent');
+      await onAgentUpload(normalized)
+      
+    } catch (e: any) {
+      toast.error(e.message || "حدث خطأ أثناء القراءة من الوكيل المحلي")
+    } finally {
+      setIsReadingAgent(false)
+    }
+  }
 
   const handleHardwareReadWrapper = () => {
     trackSource('COUNTER', 'hardware');
@@ -2187,12 +2326,68 @@ function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead
 
   return (
     <Card className="border-0 shadow-card bg-white rounded-[2.5rem] overflow-hidden">
-       <CardHeader className="p-8 border-b border-waha-gray-50 flex flex-row items-center justify-between">
+       <CardHeader className="p-8 border-b border-waha-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <CardTitle className="text-xl font-black text-waha-gray-900">عدّ الأموال والمطابقة</CardTitle>
             <p className="text-xs font-bold text-waha-gray-400 mt-1">تفريغ بيانات آلة العدّ النقدي ومطابقتها</p>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex flex-wrap items-center gap-3">
+             {/* Local Agent Controls */}
+             <div className="flex items-center gap-2 p-1 bg-waha-gray-50 rounded-2xl border border-waha-gray-100">
+                <div className={cn(
+                  "px-3 py-1.5 rounded-xl flex items-center gap-2 text-[10px] font-black transition-colors",
+                  agentStatus === 'ONLINE' ? "bg-emerald-500/10 text-emerald-600" : 
+                  agentStatus === 'DEVICE_ERROR' ? "bg-amber-500/10 text-amber-600" :
+                  agentStatus === 'CHECKING' ? "bg-waha-gray-200 text-waha-gray-500" :
+                  "bg-red-500/10 text-red-600"
+                )}>
+                   <div className={cn("w-1.5 h-1.5 rounded-full", 
+                      agentStatus === 'ONLINE' ? "bg-emerald-500 animate-pulse" : 
+                      agentStatus === 'DEVICE_ERROR' ? "bg-amber-500" : 
+                      "bg-red-500"
+                   )} />
+                   {agentStatus === 'ONLINE' ? "الوكيل المحلي متصل" : 
+                    agentStatus === 'DEVICE_ERROR' ? "برنامج Glory غير جاهز" :
+                    agentStatus === 'CHECKING' ? "جاري التحقق..." :
+                    "تعذر الاتصال بالوكيل"}
+                </div>
+                
+                <Button 
+                   onClick={handleAgentReset}
+                   disabled={agentStatus === 'OFFLINE' || isResetting || isLoading}
+                   variant="ghost"
+                   className="h-8 px-3 rounded-lg text-[10px] font-bold gap-1 hover:bg-white"
+                >
+                   {isResetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                   بدء عد جديد
+                </Button>
+
+                <Button 
+                   onClick={handleAgentRead}
+                   disabled={agentStatus === 'OFFLINE' || isReadingAgent || isLoading}
+                   className="h-8 px-4 bg-waha-gold text-waha-gray-900 rounded-lg text-[10px] font-black gap-1 shadow-sm"
+                >
+                   {isReadingAgent ? <Loader2 className="w-3 h-3 animate-spin" /> : <Cpu className="w-3 h-3" />}
+                   قراءة من GFS-220
+                </Button>
+             </div>
+
+             <div className="w-px h-8 bg-waha-gray-100 hidden md:block" />
+
+             {/* Excel Upload */}
+             <input 
+               type="file" 
+               ref={fileInputRef} 
+               className="hidden" 
+               accept=".xlsx,.xls,.csv" 
+               onChange={handleFileChange} 
+             />
+             <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-10 px-6 rounded-xl border-waha-gray-200 font-bold text-xs gap-2 bg-white hover:bg-waha-gray-50">
+                <Upload className="w-4 h-4 text-waha-gray-400" /> رفع ملف Excel
+             </Button>
+
+             {/* Original Hardware Read (Optional/Legacy) */}
              {isHardwareEnabled && (
                <Button 
                  onClick={handleHardwareReadWrapper} 
@@ -2202,19 +2397,9 @@ function Step4Cash({ session, operation, denominations, onUpload, onHardwareRead
                    isCounterConnected ? "bg-waha-gray-900 text-white shadow-lg shadow-waha-gray-900/20" : "bg-waha-gray-100 text-waha-gray-400"
                  )}
                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />} {isLoading ? "جاري القراءة..." : "قراءة من الآلة"}
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />} {isLoading ? "جاري القراءة..." : "عدّ شبكي"}
                </Button>
              )}
-             <input 
-               type="file" 
-               ref={fileInputRef} 
-               className="hidden" 
-               accept=".xlsx,.xls,.csv" 
-               onChange={handleFileChange} 
-             />
-             <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-10 px-6 rounded-xl border-waha-gray-200 font-bold text-xs gap-2 bg-white">
-                <Upload className="w-4 h-4" /> رفع ملف العدّ
-             </Button>
           </div>
        </CardHeader>
        <CardContent className="p-8">
