@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -2275,30 +2275,45 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCounterConnected = hardwareStatus?.counter === 'CONNECTED'
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const localAgentEnabledByEnv = process.env.NEXT_PUBLIC_ENABLE_LOCAL_AGENT_PROXY === 'true'
-  const canUseLocalAgentProxy = localAgentEnabledByEnv || (
-    typeof window !== 'undefined' &&
-    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
-  )
+  const localAgentHosts = useMemo(() => ([
+    HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE,
+    process.env.NEXT_PUBLIC_LOCAL_AGENT_BASE_URL || "",
+    "http://127.0.0.1:5088",
+    "http://localhost:5088",
+  ].filter(Boolean)), [])
 
   // Local Agent State
   const [agentStatus, setAgentStatus] = useState<'OFFLINE' | 'ONLINE' | 'DEVICE_ERROR' | 'CHECKING'>('CHECKING')
   const [isResetting, setIsResetting] = useState(false)
   const [isReadingAgent, setIsReadingAgent] = useState(false)
+  const [activeLocalAgentBase, setActiveLocalAgentBase] = useState<string | null>(null)
+
+  const localAgentFetch = useCallback(async (path: string, init?: RequestInit) => {
+    let lastResponse: Response | null = null
+    for (const base of localAgentHosts) {
+      try {
+        const response = await fetch(`${base}${path}`, init)
+        if (response.ok) {
+          setActiveLocalAgentBase(base)
+          return response
+        }
+        lastResponse = response
+      } catch {
+        // Try next candidate host
+      }
+    }
+    return lastResponse
+  }, [localAgentHosts])
 
   const checkLocalAgent = useCallback(async () => {
-    if (!canUseLocalAgentProxy) {
-      setAgentStatus('OFFLINE')
-      return
-    }
     try {
-      const healthRes = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      const healthRes = await localAgentFetch(`/health`, { signal: AbortSignal.timeout(2000) })
       if (!healthRes?.ok) {
         setAgentStatus('OFFLINE')
         return
       }
       
-      const statusRes = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/device/status`, { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      const statusRes = await localAgentFetch(`/api/device/status`, { signal: AbortSignal.timeout(2000) })
       if (statusRes?.ok) {
         const data = await statusRes.json()
         if (data.success && data.status?.isReady) {
@@ -2312,7 +2327,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
     } catch (e) {
       setAgentStatus('OFFLINE')
     }
-  }, [canUseLocalAgentProxy])
+  }, [localAgentFetch])
 
   useEffect(() => {
     checkLocalAgent()
@@ -2321,13 +2336,9 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   }, [checkLocalAgent])
 
   const handleAgentReset = async () => {
-    if (!canUseLocalAgentProxy) {
-      toast.error("الوكيل المحلي غير متاح من بيئة الخادم الحالية")
-      return
-    }
     setIsResetting(true)
     try {
-      const res = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/session/reset`, {
+      const res = await localAgentFetch(`/api/session/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2349,14 +2360,10 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   }
 
   const handleAgentRead = async () => {
-    if (!canUseLocalAgentProxy) {
-      toast.error("الوكيل المحلي غير متاح من بيئة الخادم الحالية")
-      return
-    }
     setIsReadingAgent(true)
     try {
       toast.info("جاري انتظار ملف العد من جهاز GFS-220...")
-      const res = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/files/latest?includeFileBase64=false&moveToArchive=false&waitForFile=true&timeoutSeconds=30`)
+      const res = await localAgentFetch(`/api/files/latest?includeFileBase64=false&moveToArchive=false&waitForFile=true&timeoutSeconds=30`)
       
       if (!res.ok) {
         if (res.status === 404) throw new Error("لا توجد نتيجة عد جديدة من الجهاز")
@@ -2431,8 +2438,11 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
                    {agentStatus === 'ONLINE' ? "الوكيل المحلي متصل" : 
                     agentStatus === 'DEVICE_ERROR' ? "برنامج Glory غير جاهز" :
                     agentStatus === 'CHECKING' ? "جاري التحقق..." :
-                    canUseLocalAgentProxy ? "تعذر الاتصال بالوكيل" : "غير متاح على هذا الخادم"}
+                    "تعذر الاتصال بالوكيل"}
                 </div>
+                {activeLocalAgentBase && (
+                  <span className="text-[9px] text-waha-gray-400 font-bold px-1">{activeLocalAgentBase}</span>
+                )}
                 
                 <Button 
                    onClick={handleAgentReset}
