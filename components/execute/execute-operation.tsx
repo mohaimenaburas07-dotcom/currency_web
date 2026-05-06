@@ -2275,6 +2275,11 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCounterConnected = hardwareStatus?.counter === 'CONNECTED'
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const localAgentEnabledByEnv = process.env.NEXT_PUBLIC_ENABLE_LOCAL_AGENT_PROXY === 'true'
+  const canUseLocalAgentProxy = localAgentEnabledByEnv || (
+    typeof window !== 'undefined' &&
+    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+  )
 
   // Local Agent State
   const [agentStatus, setAgentStatus] = useState<'OFFLINE' | 'ONLINE' | 'DEVICE_ERROR' | 'CHECKING'>('CHECKING')
@@ -2282,6 +2287,10 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   const [isReadingAgent, setIsReadingAgent] = useState(false)
 
   const checkLocalAgent = useCallback(async () => {
+    if (!canUseLocalAgentProxy) {
+      setAgentStatus('OFFLINE')
+      return
+    }
     try {
       const healthRes = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null)
       if (!healthRes?.ok) {
@@ -2303,7 +2312,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
     } catch (e) {
       setAgentStatus('OFFLINE')
     }
-  }, [])
+  }, [canUseLocalAgentProxy])
 
   useEffect(() => {
     checkLocalAgent()
@@ -2312,6 +2321,10 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   }, [checkLocalAgent])
 
   const handleAgentReset = async () => {
+    if (!canUseLocalAgentProxy) {
+      toast.error("الوكيل المحلي غير متاح من بيئة الخادم الحالية")
+      return
+    }
     setIsResetting(true)
     try {
       const res = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/session/reset`, {
@@ -2336,6 +2349,10 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   }
 
   const handleAgentRead = async () => {
+    if (!canUseLocalAgentProxy) {
+      toast.error("الوكيل المحلي غير متاح من بيئة الخادم الحالية")
+      return
+    }
     setIsReadingAgent(true)
     try {
       toast.info("جاري انتظار ملف العد من جهاز GFS-220...")
@@ -2414,7 +2431,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
                    {agentStatus === 'ONLINE' ? "الوكيل المحلي متصل" : 
                     agentStatus === 'DEVICE_ERROR' ? "برنامج Glory غير جاهز" :
                     agentStatus === 'CHECKING' ? "جاري التحقق..." :
-                    "تعذر الاتصال بالوكيل"}
+                    canUseLocalAgentProxy ? "تعذر الاتصال بالوكيل" : "غير متاح على هذا الخادم"}
                 </div>
                 
                 <Button 
