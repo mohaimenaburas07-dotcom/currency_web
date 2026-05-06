@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -2275,35 +2275,20 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCounterConnected = hardwareStatus?.counter === 'CONNECTED'
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const localAgentHosts = useMemo(() => ([
-    HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE,
-    process.env.NEXT_PUBLIC_LOCAL_AGENT_BASE_URL || "",
-    "http://127.0.0.1:5088",
-    "http://localhost:5088",
-  ].filter(Boolean)), [])
+  const localAgentBase = "http://127.0.0.1:5088"
 
   // Local Agent State
   const [agentStatus, setAgentStatus] = useState<'OFFLINE' | 'ONLINE' | 'DEVICE_ERROR' | 'CHECKING'>('CHECKING')
   const [isResetting, setIsResetting] = useState(false)
   const [isReadingAgent, setIsReadingAgent] = useState(false)
-  const [activeLocalAgentBase, setActiveLocalAgentBase] = useState<string | null>(null)
 
   const localAgentFetch = useCallback(async (path: string, init?: RequestInit) => {
-    let lastResponse: Response | null = null
-    for (const base of localAgentHosts) {
-      try {
-        const response = await fetch(`${base}${path}`, init)
-        if (response.ok) {
-          setActiveLocalAgentBase(base)
-          return response
-        }
-        lastResponse = response
-      } catch {
-        // Try next candidate host
-      }
+    try {
+      return await fetch(`${localAgentBase}${path}`, init)
+    } catch {
+      return null
     }
-    return lastResponse
-  }, [localAgentHosts])
+  }, [])
 
   const checkLocalAgent = useCallback(async () => {
     try {
@@ -2440,9 +2425,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
                     agentStatus === 'CHECKING' ? "جاري التحقق..." :
                     "تعذر الاتصال بالوكيل"}
                 </div>
-                {activeLocalAgentBase && (
-                  <span className="text-[9px] text-waha-gray-400 font-bold px-1">{activeLocalAgentBase}</span>
-                )}
+                <span className="text-[9px] text-waha-gray-400 font-bold px-1">{localAgentBase}</span>
                 
                 <Button 
                    onClick={handleAgentReset}
