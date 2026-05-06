@@ -667,6 +667,21 @@ model WorkflowAuditLog {
   @@map("workflow_audit_logs")
 }
 
+/// FCMS-shaped purchase request payloads for local simulation. Serve via API when MOCK_FCMS=1 (see scripts/seed-fcms-fixtures.ts).
+model FcmsRequestFixture {
+  id           String   @id @default(cuid())
+  purchaseUuid String   @unique @map("purchase_uuid") @db.Uuid
+  /// pending | queue | both — which proxy list includes this row
+  listKind     String   @map("list_kind") @db.VarChar(16)
+  payload      Json
+  label        String?  @db.VarChar(255)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([listKind])
+  @@map("fcms_request_fixtures")
+}
+
 model BranchHardwareConfig {
   id         String           @id @default(cuid())
   branchCode String           @unique @map("branch_code")

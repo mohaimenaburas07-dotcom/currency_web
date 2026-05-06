@@ -7,7 +7,8 @@
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "build:safe": "cross-env NODE_OPTIONS=--max-old-space-size=4096 NEXT_CPU_CORES=4 next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "seed:fcms": "npx tsx scripts/seed-fcms-fixtures.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

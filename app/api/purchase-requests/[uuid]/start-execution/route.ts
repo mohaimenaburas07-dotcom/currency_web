@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { fetchPurchaseRequestByUuid } from "@/lib/fxApiClient"
+import { findFixturePayloadByPurchaseUuid } from "@/lib/fcmsDbFixtures"
 import { extractCustomerCode } from "@/lib/extractCustomerCode"
 import { writeAuditLog, extractRequestMeta } from "@/lib/auditLogger"
 import { toErrorResponse } from "@/lib/workflowErrors"
@@ -82,15 +83,19 @@ export async function POST(
 
         if (!request) {
           console.warn("[start-execution] CBS search failed completely, trying local DB fallback");
-          // Try to find in local fx_requests as a fallback
-          const localReq = await prisma.fx_requests.findFirst({
-            where: { id: uuid }
-          });
-          if (localReq) {
-            request = localReq;
+          const fixturePayload = await findFixturePayloadByPurchaseUuid(uuid)
+          if (fixturePayload) {
+            request = fixturePayload
           } else {
-            console.error("[start-execution] No data found for request:", uuid);
-            throw new Error(`تعذر العثور على بيانات الطلب ${uuid} في النظام المركزي أو المحلي`);
+            const localReq = await prisma.fx_requests.findFirst({
+              where: { id: uuid },
+            })
+            if (localReq) {
+              request = localReq
+            } else {
+              console.error("[start-execution] No data found for request:", uuid)
+              throw new Error(`تعذر العثور على بيانات الطلب ${uuid} في النظام المركزي أو المحلي`)
+            }
           }
         }
       }

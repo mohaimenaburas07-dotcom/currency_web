@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  filterFixturePayloads,
+  getPendingFixturePayloads,
+  paginateFixturePayloads,
+} from "@/lib/fcmsDbFixtures"
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -6,6 +11,22 @@ export async function GET(req: NextRequest) {
   const phone = searchParams.get("filter[phone]")
   const nid = searchParams.get("filter[nid]")
   const page = searchParams.get("page") || "1"
+
+  const useMock =
+    process.env.MOCK_FCMS === "1" ||
+    process.env.MOCK_FCMS === "true"
+
+  if (useMock) {
+    try {
+      const raw = await getPendingFixturePayloads()
+      const filtered = filterFixturePayloads(raw, reference, phone, nid)
+      const body = paginateFixturePayloads(filtered, parseInt(page, 10) || 1)
+      return NextResponse.json(body)
+    } catch (e) {
+      console.error("[PendingRequests] MOCK_FCMS fixture error:", e)
+      return NextResponse.json({ error: "Failed to load FCMS fixtures from DB" }, { status: 500 })
+    }
+  }
 
   const FX_BASE = process.env.FX_HOUSE_API || "https://fcms-banks.cbl.gov.ly"
   const token = process.env.FX_HOUSE_TOKEN

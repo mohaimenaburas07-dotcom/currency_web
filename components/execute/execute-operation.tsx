@@ -21,6 +21,7 @@ import {
   Verified,
   Loader2,
   AlertCircle,
+  Activity,
   ChevronLeft,
   ChevronRight,
   Zap,
@@ -2219,13 +2220,13 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
 
   const checkLocalAgent = useCallback(async () => {
     try {
-      const healthRes = await fetch('http://localhost:5088/health', { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      const healthRes = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null)
       if (!healthRes?.ok) {
         setAgentStatus('OFFLINE')
         return
       }
       
-      const statusRes = await fetch('http://localhost:5088/api/device/status', { signal: AbortSignal.timeout(2000) }).catch(() => null)
+      const statusRes = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/device/status`, { signal: AbortSignal.timeout(2000) }).catch(() => null)
       if (statusRes?.ok) {
         const data = await statusRes.json()
         if (data.success && data.status?.isReady) {
@@ -2250,7 +2251,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
   const handleAgentReset = async () => {
     setIsResetting(true)
     try {
-      const res = await fetch('http://localhost:5088/api/session/reset', {
+      const res = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/session/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2275,7 +2276,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
     setIsReadingAgent(true)
     try {
       toast.info("جاري انتظار ملف العد من جهاز GFS-220...")
-      const res = await fetch('http://localhost:5088/api/files/latest?includeFileBase64=false&moveToArchive=false&waitForFile=true&timeoutSeconds=30')
+      const res = await fetch(`${HARDWARE_CONFIG.LOCAL_AGENT_PROXY_BASE}/api/files/latest?includeFileBase64=false&moveToArchive=false&waitForFile=true&timeoutSeconds=30`)
       
       if (!res.ok) {
         if (res.status === 404) throw new Error("لا توجد نتيجة عد جديدة من الجهاز")
@@ -2359,7 +2360,7 @@ function Step4Cash({ session, operation, denominations, onUpload, onAgentUpload,
                    variant="ghost"
                    className="h-8 px-3 rounded-lg text-[10px] font-bold gap-1 hover:bg-white"
                 >
-                   {isResetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                   {isResetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
                    بدء عد جديد
                 </Button>
 
