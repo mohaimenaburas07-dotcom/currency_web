@@ -67,7 +67,8 @@ export function ExecuteOperation() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const uuid = searchParams.get("id")
-  const currentStep = parseInt(searchParams.get("step") || "1")
+  const rawStep = parseInt(searchParams.get("step") || "1", 10)
+  const currentStep = Number.isFinite(rawStep) ? Math.min(6, Math.max(1, rawStep)) : 1
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -178,8 +179,9 @@ export function ExecuteOperation() {
   }
 
   const goToStep = (step: number) => {
+    const clamped = Math.min(6, Math.max(1, Math.round(step)))
     const params = new URLSearchParams(searchParams.toString())
-    params.set("step", step.toString())
+    params.set("step", String(clamped))
     router.push(`${pathname}?${params.toString()}`)
   }
 
@@ -226,8 +228,10 @@ export function ExecuteOperation() {
         const sid = sessionData.sessionId
         console.log(`[LoadData] Session created/found: ${sid}. Redirecting...`);
         
-        // Use the existing execution route with the session ID
-        router.push(`/execute?id=${sid}`)
+        // Preserve query params (e.g. step=) when resolving purchase-request id → session id
+        const nextParams = new URLSearchParams(searchParams.toString())
+        nextParams.set("id", sid)
+        router.push(`${pathname}?${nextParams.toString()}`)
         return
       }
 
@@ -856,7 +860,12 @@ export function ExecuteOperation() {
             const isDone = step.id < currentStep
             return (
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center gap-2 relative">
+                <button
+                  type="button"
+                  onClick={() => goToStep(step.id)}
+                  title={`الانتقال إلى: ${step.label}`}
+                  className="flex flex-col items-center gap-2 relative rounded-2xl p-1 -m-1 transition-colors hover:bg-waha-gray-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-waha-gold focus-visible:ring-offset-2"
+                >
                   <div className={cn(
                     "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
                     isDone ? "bg-emerald-500 shadow-lg shadow-emerald-100" :
@@ -874,7 +883,7 @@ export function ExecuteOperation() {
                     isActive ? "text-waha-gold" :
                     "text-waha-gray-400"
                   )}>{step.label}</span>
-                </div>
+                </button>
                 {idx < STEPS.length - 1 && (
                   <div className={cn(
                     "flex-1 h-1 mx-4 mb-6 rounded-full transition-all duration-500",
@@ -1037,7 +1046,7 @@ export function ExecuteOperation() {
               variant="outline" 
               className="w-full h-12 rounded-2xl border-waha-gray-200 text-waha-gray-600 font-bold text-xs gap-2 hover:bg-waha-gray-50"
               onClick={() => goToStep(currentStep - 1)}
-              disabled={currentStep >= 3}
+              disabled={currentStep <= 1}
             >
               <ArrowRight className="w-4 h-4" /> الرجوع للسابق
             </Button>
@@ -1585,12 +1594,13 @@ function Step2Identity({ customer, isVerified, onVerify, onNext, onSkip, hardwar
 function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, hardwareStatus, hardwareConfig, session, onNext, onRefreshSession, devicesCollection, selectedDeviceId, onSelectDevice, trackSource, galleryRefreshKey, isAdmin }: any) {
   const isHardwareEnabled = HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION
   const isCameraConnected = hardwareStatus?.camera === 'CONNECTED'
-  
-  const handleHardwareCaptureWrapper = () => {
-    trackSource('CAMERA', 'hardware');
-    onHardwareCapture(selectedDeviceId)
-  }
-  
+  const canUseHardware = isHardwareEnabled && isCameraConnected
+  const [cameraSource, setCameraSource] = useState<'hardware' | 'webcam'>(() =>
+    HARDWARE_CONFIG.ENABLE_HARDWARE_INTEGRATION ? 'hardware' : 'webcam'
+  )
+  /** Branch Uniview / MJPEG feed — false when operator chose webcam or hardware unavailable */
+  const useHardwareFeed = cameraSource === 'hardware' && canUseHardware
+
   type CameraState = 'idle' | 'loading' | 'ready' | 'recording' | 'capturing' | 'error'
   const [cameraState, setCameraState] = useState<CameraState>('idle')
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -1740,23 +1750,28 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
 
 
   useEffect(() => {
-     if (isHardwareEnabled && isCameraConnected) {
-        initWebRTC();
+     if (!useHardwareFeed) {
+        if (pcRef.current) {
+           pcRef.current.close();
+           pcRef.current = null;
+        }
+        return;
      }
+     initWebRTC();
      return () => {
         if (pcRef.current) {
            pcRef.current.close();
            pcRef.current = null;
         }
      }
-  }, [initWebRTC, isHardwareEnabled, isCameraConnected]);
+  }, [initWebRTC, useHardwareFeed]);
 
   const startPolling = useCallback(() => {
-       if (isHardwareEnabled && isCameraConnected && isWebRTCAvailable === false && !document.hidden) {
+       if (useHardwareFeed && isWebRTCAvailable === false && !document.hidden) {
            frameStatsRef.current.lastLoadStart = Date.now();
            setRefreshKey(Date.now());
        }
-  }, [isHardwareEnabled, isCameraConnected, isWebRTCAvailable]);
+  }, [useHardwareFeed, isWebRTCAvailable]);
 
   useEffect(() => {
     let isActive = true;
@@ -1785,14 +1800,14 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   const HARDWARE_POLL_DELAY_MS = 200;
 
   const triggerNextFrame = useCallback(() => {
-     if (!isHardwareEnabled || !isCameraConnected || document.hidden || isWebRTCAvailable !== false) return;
+     if (!useHardwareFeed || document.hidden || isWebRTCAvailable !== false) return;
      if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
      
      pollingTimerRef.current = setTimeout(() => {
         frameStatsRef.current.lastLoadStart = Date.now();
         setRefreshKey(Date.now());
      }, HARDWARE_POLL_DELAY_MS);
-  }, [isHardwareEnabled, isCameraConnected, isWebRTCAvailable]);
+  }, [useHardwareFeed, isWebRTCAvailable]);
 
   const handleImageLoad = () => {
      const now = Date.now();
@@ -1812,14 +1827,22 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
      triggerNextFrame();
   };
 
-  const initBrowserCamera = useCallback(async () => {
-    if (isHardwareEnabled && isCameraConnected) return;
+  const startWebcamStream = useCallback(async () => {
     setCameraState('loading')
+    setCameraError(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      })
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        await videoRef.current.play().catch(() => {})
       }
       setCameraState('ready')
     } catch (e) {
@@ -1827,14 +1850,24 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
       setCameraError('تعذّر الوصول إلى الكاميرا')
       setCameraState('error')
     }
-  }, [isHardwareEnabled, isCameraConnected])
+  }, [])
 
   useEffect(() => {
-    initBrowserCamera()
+    if (useHardwareFeed) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      if (videoRef.current) videoRef.current.srcObject = null
+      return
+    }
+    startWebcamStream()
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
       }
+      if (videoRef.current) videoRef.current.srcObject = null
       if (timerRef.current) clearInterval(timerRef.current)
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         recorderRef.current.stop()
@@ -1843,7 +1876,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
         cancelAnimationFrame(drawLoopRef.current)
       }
     }
-  }, [initBrowserCamera])
+  }, [useHardwareFeed, startWebcamStream])
 
   const uploadFile = async (file: File, type: 'photo' | 'video') => {
     const formData = new FormData()
@@ -1885,11 +1918,11 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
   }
 
   const startRecording = () => {
-    if (!isHardwareEnabled && cameraState !== 'ready') {
+    if (!useHardwareFeed && cameraState !== 'ready') {
       toast.error("يرجى الانتظار حتى تكون الكاميرا جاهزة");
       return;
     }
-    if (isHardwareEnabled && !isCameraConnected) {
+    if (useHardwareFeed && !isCameraConnected) {
       toast.error("الكاميرا غير متصلة. يرجى التحقق من التوصيلات");
       return;
     }
@@ -1910,7 +1943,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
       let frameCount = 0;
       let isCanvasRecording = false;
       
-      if (isHardwareEnabled && isCameraConnected) {
+      if (useHardwareFeed) {
         
         if (isWebRTCAvailable && webrtcVideoRef.current) {
             activeStream = (webrtcVideoRef.current as any).captureStream();
@@ -1992,14 +2025,14 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
         
         if (blob.size < 10000) {
            toast.error("فشل حفظ الفيديو: حجم الملف صغير جداً أو فارغ");
-           setCameraState(isHardwareEnabled && isCameraConnected ? 'idle' : 'ready');
+           setCameraState(useHardwareFeed ? 'idle' : 'ready');
            return;
         }
 
         const ext = mimeType.includes('mp4') ? '.mp4' : '.webm'
         const file = new File([blob], `recording${ext}`, { type: mimeType })
         await uploadFile(file, 'video')
-        setCameraState(isHardwareEnabled && isCameraConnected ? 'idle' : 'ready')
+        setCameraState(useHardwareFeed ? 'idle' : 'ready')
       }
       recorder.start(1000)
       recorderRef.current = recorder
@@ -2010,7 +2043,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
     } catch (e) {
       console.error("Recording error:", e)
       toast.error('فشل بدء التسجيل')
-      setCameraState(isHardwareEnabled && isCameraConnected ? 'idle' : 'ready')
+      setCameraState(useHardwareFeed ? 'idle' : 'ready')
     }
   }
 
@@ -2043,8 +2076,36 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
             <CardTitle className="text-xl font-black text-waha-gray-900">التسجيل والتوثيق المرئي</CardTitle>
             <p className="text-xs font-bold text-waha-gray-400 mt-1">تسجيل العملية بالفيديو والتقاط الصور</p>
           </div>
-          <div className="flex items-center gap-3">
-             {isHardwareEnabled && (
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+             {canUseHardware && (
+               <div className="flex rounded-xl border border-waha-gray-200 bg-waha-gray-50 p-1 gap-1" role="group" aria-label="مصدر الصورة">
+                  <button
+                    type="button"
+                    onClick={() => setCameraSource('hardware')}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-[10px] font-black transition-all",
+                      cameraSource === 'hardware'
+                        ? "bg-waha-gray-900 text-waha-gold shadow-md"
+                        : "text-waha-gray-500 hover:text-waha-gray-800"
+                    )}
+                  >
+                    كاميرا الفرع
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCameraSource('webcam')}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-[10px] font-black transition-all",
+                      cameraSource === 'webcam'
+                        ? "bg-waha-gray-900 text-waha-gold shadow-md"
+                        : "text-waha-gray-500 hover:text-waha-gray-800"
+                    )}
+                  >
+                    كاميرا الويب
+                  </button>
+               </div>
+             )}
+             {useHardwareFeed && (
                <Button 
                  onClick={() => { 
                    if (!isCameraConnected) {
@@ -2062,7 +2123,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                   <Cpu className="w-4 h-4" /> التقاط عبر الكاميرا
                </Button>
              )}
-             {(!isHardwareEnabled || !isCameraConnected) && (
+             {!useHardwareFeed && (
                <Button onClick={captureSnapshot} disabled={cameraState !== 'ready'} variant="outline" className="h-10 px-6 rounded-xl border-waha-gray-200 font-bold text-xs gap-2 bg-white">
                   {cameraState === 'capturing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />} التقاط صورة
                </Button>
@@ -2071,22 +2132,24 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
        </CardHeader>
        <CardContent className="p-8 flex-1 flex gap-8">
           <div className="flex-1 flex flex-col">
-             <DeviceSelector 
-                type="CAMERA" 
-                devices={devicesCollection || []} 
-                selectedId={selectedDeviceId} 
-                onSelect={onSelectDevice} 
-             />
+             {useHardwareFeed && (
+               <DeviceSelector 
+                  type="CAMERA" 
+                  devices={devicesCollection || []} 
+                  selectedId={selectedDeviceId} 
+                  onSelect={onSelectDevice} 
+               />
+             )}
              <div className="bg-waha-gray-950 rounded-[2rem] flex-1 relative overflow-hidden border border-waha-gray-800 shadow-2xl flex items-center justify-center group">
                 
                 <div className="absolute top-6 left-6 flex items-center gap-2 bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 text-white font-bold text-xs z-10">
                    <Camera className="w-4 h-4 text-waha-gold" />
-                   {isHardwareEnabled && isCameraConnected ? 'كاميرا الأجهزة (Uniview)' : 'كاميرا المتصفح'}
+                   {useHardwareFeed ? 'كاميرا الأجهزة (Uniview)' : 'كاميرا الويب'}
                 </div>
 
                 <canvas ref={canvasRef} className="hidden" />
 
-                {isHardwareEnabled && isCameraConnected ? (
+                {useHardwareFeed ? (
                   <img 
                     ref={hwImgRef} 
                     src={liveCameraUrl} 
@@ -2103,7 +2166,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                       <div className="absolute inset-0 bg-red-900/20 flex flex-col items-center justify-center">
                         <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
                         <span className="text-red-200 font-bold text-xs">{cameraError}</span>
-                        <Button variant="outline" size="sm" onClick={initBrowserCamera} className="mt-4 border-red-500/50 text-red-400 bg-black/50 hover:bg-red-500/20 hover:text-white">إعادة المحاولة</Button>
+                        <Button variant="outline" size="sm" onClick={startWebcamStream} className="mt-4 border-red-500/50 text-red-400 bg-black/50 hover:bg-red-500/20 hover:text-white">إعادة المحاولة</Button>
                       </div>
                     )}
                     {cameraState === 'capturing' && (
@@ -2127,7 +2190,7 @@ function Step3Documentation({ isRecording, setIsRecording, onHardwareCapture, ha
                        {!isRecording ? (
                          <Button 
                            onClick={startRecording}
-                           disabled={(!isHardwareEnabled && cameraState !== 'ready') || (isHardwareEnabled && !isCameraConnected)}
+                           disabled={useHardwareFeed ? !isCameraConnected : cameraState !== 'ready'}
                            className="h-14 px-8 bg-waha-gold text-waha-gray-900 font-black rounded-full shadow-xl shadow-waha-gold/20 disabled:opacity-50"
                          >
                            بدء التسجيل
